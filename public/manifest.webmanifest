@@ -1,0 +1,25 @@
+{
+  "name": "FINANCEIRO TP",
+  "short_name": "FINANCEIRO TP",
+  "description": "Gestão financeira sincronizada entre computador e iPhone.",
+  "start_url": "/painel",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0b07",
+  "theme_color": "#0d0b07",
+  "icons": [
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
