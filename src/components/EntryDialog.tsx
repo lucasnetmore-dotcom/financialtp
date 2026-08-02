@@ -40,7 +40,7 @@ export function EntryDialog({
 }: {
   open: boolean;
   entry: Entry | null;
-  preset?: "withdrawal";
+  preset?: "withdrawal" | undefined;
   saving: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (input: EntryInput) => void;
