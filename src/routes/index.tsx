@@ -1,24 +1,78 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "FINANCEIRO TP — gestão financeira sincronizada" },
+      {
+        name: "description",
+        content:
+          "Controle entradas, saídas, metas e relatórios do seu negócio com sincronização automática entre PC e iPhone.",
+      },
+      { property: "og:title", content: "FINANCEIRO TP — gestão financeira sincronizada" },
+      {
+        property: "og:description",
+        content: "Um só login, os mesmos dados em todos os dispositivos, em tempo real.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: Landing,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function Landing() {
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) =>
+      setSignedIn(!!session),
+    );
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="flex min-h-screen items-center justify-center px-6 py-16">
+      <div className="w-full max-w-xl text-center">
+        <p className="eyebrow">Gestão financeira</p>
+        <h1 className="mt-3 text-5xl font-bold tracking-tight">
+          FINANCEI<span className="text-primary">RO TP</span>
+        </h1>
+        <p className="mt-5 text-base text-muted-foreground">
+          Os seus lançamentos ficam guardados na nuvem e aparecem ao mesmo tempo no computador
+          e no iPhone. Um só login, sempre sincronizado.
+        </p>
+        <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+          <Button asChild size="lg">
+            <Link to={signedIn ? "/painel" : "/auth"}>
+              {signedIn ? "Abrir painel" : "Entrar na minha conta"}
+            </Link>
+          </Button>
+          {!signedIn && (
+            <Button asChild size="lg" variant="outline">
+              <Link to="/auth" search={{ modo: "registo" }}>
+                Criar conta
+              </Link>
+            </Button>
+          )}
+        </div>
+        <ul className="mx-auto mt-12 grid max-w-md gap-3 text-left text-sm text-muted-foreground">
+          {[
+            "Base de dados única na nuvem — nada fica só no dispositivo",
+            "Atualização em tempo real entre PC e iPhone",
+            "Funciona offline e envia tudo ao reconectar",
+          ].map((item) => (
+            <li key={item} className="panel px-4 py-3">
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </main>
   );
 }
