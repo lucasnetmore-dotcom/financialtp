@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
@@ -37,11 +38,14 @@ function Landing() {
   }, []);
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-16">
-      <div className="w-full max-w-xl text-center">
+    <main className="relative flex min-h-screen items-center justify-center px-6 py-16">
+      <div className="absolute top-5 right-5">
+        <ThemeToggle />
+      </div>
+      <div className="w-full max-w-xl text-center animate-fade-up">
         <p className="eyebrow">Gestão financeira</p>
-        <h1 className="mt-3 text-5xl font-bold tracking-tight">
-          FINANCEI<span className="text-primary">RO TP</span>
+        <h1 className="mt-3 font-display text-5xl font-bold tracking-tight">
+          FINANCEI<span className="gold-text">RO TP</span>
         </h1>
         <p className="mt-5 text-base text-muted-foreground">
           Os seus lançamentos ficam guardados na nuvem e aparecem ao mesmo tempo no computador
@@ -67,7 +71,7 @@ function Landing() {
             "Atualização em tempo real entre PC e iPhone",
             "Funciona offline e envia tudo ao reconectar",
           ].map((item) => (
-            <li key={item} className="panel px-4 py-3">
+            <li key={item} className="panel panel-lift px-4 py-3">
               {item}
             </li>
           ))}
