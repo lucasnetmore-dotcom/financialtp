@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/auth")({
@@ -73,10 +74,13 @@ function AuthPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-5 py-14">
-      <div className="panel w-full max-w-md p-8">
+    <main className="relative flex min-h-screen items-center justify-center px-5 py-14">
+      <div className="absolute top-5 right-5">
+        <ThemeToggle />
+      </div>
+      <div className="panel panel-crown w-full max-w-md p-8 animate-fade-up">
         <p className="eyebrow">FINANCEIRO TP</p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">
+        <h1 className="mt-2 font-display text-2xl font-bold tracking-tight">
           {mode === "registo" ? "Criar conta" : "Entrar na conta"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
