@@ -130,39 +130,48 @@
 
 
 .dark {
-  --background: oklch(0.19 0.008 110);
-  --foreground: oklch(0.96 0.005 90);
-  --card: oklch(0.235 0.009 110);
-  --card-foreground: oklch(0.96 0.005 90);
-  --popover: oklch(0.235 0.009 110);
-  --popover-foreground: oklch(0.96 0.005 90);
-  --primary: oklch(0.72 0.1 85);
-  --primary-foreground: oklch(0.2 0.01 90);
-  --primary-dark: oklch(0.62 0.1 85);
-  --primary-soft: oklch(0.28 0.02 90);
-  --secondary: oklch(0.28 0.01 110);
-  --secondary-foreground: oklch(0.96 0.005 90);
-  --muted: oklch(0.28 0.01 110);
-  --muted-foreground: oklch(0.7 0.008 100);
-  --accent: oklch(0.28 0.02 90);
-  --accent-foreground: oklch(0.85 0.09 85);
-  --destructive: oklch(0.65 0.12 22);
-  --destructive-foreground: oklch(0.99 0.005 90);
-  --danger-soft: oklch(0.3 0.03 25);
-  --success: oklch(0.68 0.1 163);
-  --success-foreground: oklch(0.2 0.01 160);
-  --success-soft: oklch(0.28 0.03 163);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.72 0.1 85);
-  --sidebar: oklch(0.235 0.009 110);
-  --sidebar-foreground: oklch(0.85 0.006 100);
-  --sidebar-primary: oklch(0.85 0.09 85);
-  --sidebar-primary-foreground: oklch(0.2 0.01 90);
-  --sidebar-accent: oklch(0.28 0.02 90);
-  --sidebar-accent-foreground: oklch(0.85 0.09 85);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.72 0.1 85);
+  /* Escuro premium: quase-preto quente, sem cinzentos azulados nem contrastes duros. */
+  --background: oklch(0.165 0.007 95);
+  --foreground: oklch(0.955 0.004 90);
+  --card: oklch(0.213 0.008 95);
+  --card-foreground: oklch(0.955 0.004 90);
+  --popover: oklch(0.213 0.008 95);
+  --popover-foreground: oklch(0.955 0.004 90);
+  --primary: oklch(0.78 0.098 86);
+  --primary-foreground: oklch(0.19 0.012 90);
+  --primary-dark: oklch(0.86 0.075 88);
+  --primary-soft: oklch(0.27 0.028 88);
+  --secondary: oklch(0.255 0.008 95);
+  --secondary-foreground: oklch(0.955 0.004 90);
+  --muted: oklch(0.255 0.008 95);
+  --muted-foreground: oklch(0.715 0.008 95);
+  --accent: oklch(0.265 0.026 88);
+  --accent-foreground: oklch(0.88 0.08 86);
+  --destructive: oklch(0.66 0.13 24);
+  --destructive-foreground: oklch(0.985 0.005 90);
+  --danger-soft: oklch(0.29 0.045 24);
+  --success: oklch(0.74 0.11 165);
+  --success-foreground: oklch(0.19 0.012 160);
+  --success-soft: oklch(0.28 0.04 165);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.78 0.098 86);
+  --sidebar: oklch(0.196 0.008 95);
+  --sidebar-foreground: oklch(0.83 0.006 95);
+  --sidebar-primary: oklch(0.86 0.075 88);
+  --sidebar-primary-foreground: oklch(0.19 0.012 90);
+  --sidebar-accent: oklch(0.265 0.026 88);
+  --sidebar-accent-foreground: oklch(0.88 0.08 86);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.78 0.098 86);
+  --panel-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 18px 40px -22px oklch(0 0 0 / 0.75);
+  --panel-shadow-hover: 0 1px 0 oklch(1 0 0 / 0.06) inset, 0 28px 60px -24px oklch(0 0 0 / 0.85);
+  --surface-veil: radial-gradient(
+      1100px 520px at 12% -8%,
+      oklch(0.78 0.098 86 / 0.10),
+      transparent 62%
+    ),
+    radial-gradient(900px 480px at 100% 0%, oklch(0.74 0.11 165 / 0.07), transparent 60%);
 }
 
 @layer base {
@@ -170,19 +179,114 @@
     border-color: var(--color-border);
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     background-color: var(--color-background);
+    background-image: var(--surface-veil);
+    background-attachment: fixed;
     color: var(--color-foreground);
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-dark);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-muted-foreground) 30%, transparent);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
 @utility panel {
-  background-color: var(--color-card);
+  background-color: color-mix(in oklab, var(--color-card) 92%, transparent);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(14px);
+  transition:
+    box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.35s ease;
+}
+
+/* Cartão que reage ao rato — usar em métricas e blocos clicáveis. */
+@utility panel-lift {
+  &:hover {
+    box-shadow: var(--shadow-panel-hover);
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, var(--color-primary) 30%, var(--color-border));
+  }
+}
+
+/* Fio dourado subtil no topo de um bloco de destaque. */
+@utility panel-crown {
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-primary) 70%, transparent),
+      transparent
+    );
+  }
+}
+
+@utility gold-text {
+  background: linear-gradient(
+    100deg,
+    var(--color-primary-dark),
+    var(--color-primary),
+    var(--color-primary-dark)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Números financeiros alinhados em coluna. */
+@utility numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 @utility eyebrow {
@@ -191,4 +295,6 @@
   text-transform: uppercase;
   letter-spacing: 0.09em;
   font-weight: 700;
+}
+
 }
