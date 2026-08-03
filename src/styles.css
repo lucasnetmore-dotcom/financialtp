@@ -51,9 +51,37 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --shadow-panel: 0 12px 35px oklch(0.32 0.04 80 / 0.08);
-  --shadow-panel-hover: 0 18px 45px oklch(0.32 0.04 80 / 0.13);
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Sora", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --shadow-panel: var(--panel-shadow);
+  --shadow-panel-hover: var(--panel-shadow-hover);
+  --shadow-glow: 0 0 0 1px var(--color-primary-soft), 0 18px 50px -18px var(--color-primary);
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-rise: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 
 :root {
   --radius: 0.85rem;
