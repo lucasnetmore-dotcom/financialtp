@@ -159,7 +159,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[268px_1fr]">
-      <aside className="sticky top-0 z-30 border-b border-border/70 bg-sidebar/85 px-4 py-3 backdrop-blur-xl lg:h-screen lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
+      <aside className="sticky top-0 z-30 border-b border-border/70 bg-sidebar/85 px-4 py-3 backdrop-blur-xl lg:flex lg:h-screen lg:flex-col lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <span className="grid size-9 place-items-center rounded-xl bg-primary/12 text-primary ring-1 ring-primary/25">
