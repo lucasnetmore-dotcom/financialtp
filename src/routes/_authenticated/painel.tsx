@@ -1,4 +1,22 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  Download,
+  LayoutDashboard,
+  ListOrdered,
+  LogOut,
+  MinusCircle,
+  Pencil,
+  Plus,
+  Settings2,
+  Sparkles,
+  Target,
+  Trash2,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -15,6 +33,7 @@ import {
 
 import { EntryDialog } from "@/components/EntryDialog";
 import { SyncBadge } from "@/components/SyncBadge";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,10 +83,10 @@ export const Route = createFileRoute("/_authenticated/painel")({
 });
 
 const VIEWS = [
-  { id: "dashboard", label: "Visão geral" },
-  { id: "records", label: "Lançamentos" },
-  { id: "reports", label: "Relatórios" },
-  { id: "settings", label: "Definições" },
+  { id: "dashboard", label: "Visão geral", icon: LayoutDashboard },
+  { id: "records", label: "Lançamentos", icon: ListOrdered },
+  { id: "reports", label: "Relatórios", icon: BarChart3 },
+  { id: "settings", label: "Definições", icon: Settings2 },
 ] as const;
 type ViewId = (typeof VIEWS)[number]["id"];
 
@@ -83,8 +102,9 @@ function PainelRoute() {
 
 function FullPageLoader() {
   return (
-    <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-      A carregar os seus dados…
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3">
+      <div className="size-9 animate-spin rounded-full border-2 border-border border-t-primary" />
+      <p className="text-sm text-muted-foreground">A carregar os seus dados…</p>
     </div>
   );
 }
@@ -138,43 +158,71 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   }
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[250px_1fr]">
-      <aside className="border-b border-border bg-sidebar p-4 lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0 lg:p-7">
-        <div className="text-xl font-bold tracking-tight">
-          FINANCEI<span className="text-primary">RO TP</span>
+    <div className="min-h-screen lg:grid lg:grid-cols-[268px_1fr]">
+      <aside className="sticky top-0 z-30 border-b border-border/70 bg-sidebar/85 px-4 py-3 backdrop-blur-xl lg:h-screen lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-9 place-items-center rounded-xl bg-primary/12 text-primary ring-1 ring-primary/25">
+              <Sparkles className="size-4.5" />
+            </span>
+            <span className="font-display text-[15px] font-bold tracking-tight">
+              FINANCEI<span className="gold-text">RO TP</span>
+            </span>
+          </div>
+          <ThemeToggle className="lg:hidden" />
         </div>
-        <div className="mt-6 hidden rounded-xl border border-border bg-accent p-3 text-xs lg:block">
-          <strong className="block text-sm text-accent-foreground">
+
+        <div className="mt-6 hidden rounded-2xl border border-border bg-accent/60 p-3.5 lg:block">
+          <strong className="block truncate text-sm text-accent-foreground">
             {profileQuery.data?.company_name ?? "O meu negócio"}
           </strong>
-          <span className="text-muted-foreground">{email}</span>
+          <span className="truncate text-xs text-muted-foreground">{email}</span>
         </div>
-        <nav className="mt-5 flex gap-1 overflow-auto lg:grid">
-          {VIEWS.map((v) => (
-            <button
-              key={v.id}
-              onClick={() => setView(v.id)}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm whitespace-nowrap transition-colors",
-                view === v.id
-                  ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent",
-              )}
-            >
-              {v.label}
-            </button>
-          ))}
+
+        <nav className="mt-4 flex gap-1.5 overflow-x-auto pb-1 lg:mt-6 lg:grid lg:gap-1 lg:pb-0">
+          {VIEWS.map((v) => {
+            const Icon = v.icon;
+            const active = view === v.id;
+            return (
+              <button
+                key={v.id}
+                onClick={() => setView(v.id)}
+                className={cn(
+                  "group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm whitespace-nowrap transition-all duration-200",
+                  active
+                    ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-sm"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "size-4 transition-colors",
+                    active ? "text-primary" : "text-muted-foreground",
+                  )}
+                />
+                {v.label}
+                {active && (
+                  <span className="absolute inset-y-2 left-0 hidden w-0.5 rounded-full bg-primary lg:block" />
+                )}
+              </button>
+            );
+          })}
         </nav>
-        <button
-          onClick={handleSignOut}
-          className="mt-6 hidden text-xs text-muted-foreground underline-offset-4 hover:underline lg:block"
-        >
-          Terminar sessão
-        </button>
+
+        <div className="mt-auto hidden pt-8 lg:block">
+          <ThemeToggle />
+          <button
+            onClick={handleSignOut}
+            className="mt-4 flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-destructive"
+          >
+            <LogOut className="size-3.5" />
+            Terminar sessão
+          </button>
+        </div>
       </aside>
 
-      <main className="mx-auto w-full max-w-[1500px] px-5 py-7 lg:px-9">
-        <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
+      <main className="mx-auto w-full max-w-[1500px] px-5 py-7 lg:px-10 lg:py-9">
+        <header className="mb-7 flex flex-wrap items-start justify-between gap-4 animate-fade-up">
           <div>
             <p className="eyebrow">
               {new Date().toLocaleDateString("pt-PT", {
@@ -183,24 +231,33 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                 month: "long",
               })}
             </p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+            <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight lg:text-[2.1rem]">
               {VIEWS.find((v) => v.id === view)?.label}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <SyncBadge />
             <Button variant="outline" onClick={() => exportCsv(entries)}>
+              <Download className="size-4" />
               Exportar CSV
             </Button>
-            <Button onClick={() => openNew()}>+ Novo lançamento</Button>
-            <Button variant="destructive" onClick={() => openNew(true)}>
+            <Button onClick={() => openNew()} className="shadow-sm">
+              <Plus className="size-4" />
+              Novo lançamento
+            </Button>
+            <Button variant="outline" onClick={() => openNew(true)}>
+              <MinusCircle className="size-4" />
               Retirada de caixa
             </Button>
           </div>
         </header>
 
         {entriesQuery.isLoading ? (
-          <p className="text-sm text-muted-foreground">A sincronizar os seus lançamentos…</p>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="panel h-28 animate-pulse p-5" />
+            ))}
+          </div>
         ) : entriesQuery.isError ? (
           <div className="panel p-6">
             <p className="text-sm text-destructive">
@@ -215,78 +272,128 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
             {view === "dashboard" && (
               <section className="grid gap-4">
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <Metric label="Saldo atual" value={money(t.balance)} hint="Disponível em caixa" />
+                  <Metric
+                    label="Saldo atual"
+                    value={money(t.balance)}
+                    hint="Disponível em caixa"
+                    icon={Wallet}
+                    index={0}
+                  />
                   <Metric
                     label="Total de entradas"
                     value={money(t.income)}
                     hint={`${entries.filter((e) => e.type === "income").length} lançamentos`}
                     tone="success"
+                    icon={ArrowUpRight}
+                    index={1}
                   />
                   <Metric
                     label="Total de saídas"
                     value={money(t.expense)}
                     hint={`${entries.filter((e) => e.type === "expense").length} lançamentos`}
                     tone="danger"
+                    icon={ArrowDownRight}
+                    index={2}
                   />
                   <Metric
                     label="Lucro líquido"
                     value={money(t.balance)}
                     hint={`Hoje: ${money(today.balance)}`}
                     tone={t.balance >= 0 ? "success" : "danger"}
+                    icon={TrendingUp}
+                    index={3}
                   />
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-[1.45fr_0.85fr]">
-                  <div className="panel p-5">
-                    <h2 className="text-base font-semibold">Fluxo de caixa</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">Últimos 7 dias</p>
-                    <div className="mt-4 h-60">
+                  <div className="panel panel-crown p-5 lg:p-6 animate-fade-up">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <h2 className="font-display text-base font-semibold">Fluxo de caixa</h2>
+                      <span className="text-xs text-muted-foreground">Últimos 7 dias</span>
+                    </div>
+                    <div className="mt-5 h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={lastDays(entries)}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                          <defs>
+                            <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--success)" stopOpacity={0.35} />
+                              <stop offset="100%" stopColor="var(--success)" stopOpacity={0} />
+                            </linearGradient>
+                            <linearGradient id="gExpense" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--destructive)" stopOpacity={0.3} />
+                              <stop offset="100%" stopColor="var(--destructive)" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid
+                            strokeDasharray="4 6"
+                            stroke="var(--border)"
+                            vertical={false}
+                          />
                           <XAxis
                             dataKey="date"
                             tickFormatter={(d: string) =>
-                              new Date(`${d}T00:00`).toLocaleDateString("pt-PT", { weekday: "short" })
+                              new Date(`${d}T00:00`).toLocaleDateString("pt-PT", {
+                                weekday: "short",
+                              })
                             }
                             tickLine={false}
                             axisLine={false}
                             fontSize={11}
+                            stroke="var(--muted-foreground)"
                           />
-                          <YAxis tickLine={false} axisLine={false} fontSize={11} width={45} />
-                          <Tooltip formatter={(v: number) => money(Number(v))} />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            fontSize={11}
+                            width={48}
+                            stroke="var(--muted-foreground)"
+                          />
+                          <Tooltip
+                            cursor={{ stroke: "var(--border)" }}
+                            contentStyle={CHART_TOOLTIP}
+                            labelStyle={{ color: "var(--muted-foreground)", fontSize: 11 }}
+                            formatter={(v: number) => money(Number(v))}
+                          />
                           <Area
                             type="monotone"
                             dataKey="income"
                             name="Entradas"
                             stroke="var(--success)"
-                            fill="var(--success-soft)"
-                            strokeWidth={3}
+                            fill="url(#gIncome)"
+                            strokeWidth={2.5}
+                            animationDuration={700}
                           />
                           <Area
                             type="monotone"
                             dataKey="expense"
                             name="Saídas"
                             stroke="var(--destructive)"
-                            fill="var(--danger-soft)"
-                            strokeWidth={3}
+                            fill="url(#gExpense)"
+                            strokeWidth={2.5}
+                            animationDuration={700}
                           />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  <div className="panel p-5">
-                    <h2 className="text-base font-semibold">Meta mensal</h2>
-                    <p className="mt-3 text-2xl font-bold tracking-tight">
+                  <div className="panel p-5 lg:p-6 animate-fade-up">
+                    <div className="flex items-center gap-2">
+                      <Target className="size-4 text-primary" />
+                      <h2 className="font-display text-base font-semibold">Meta mensal</h2>
+                    </div>
+                    <p className="numeric mt-4 text-3xl font-bold tracking-tight">
                       {goal ? money(goal) : "Defina uma meta"}
                     </p>
-                    <div className="my-3 h-2 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                    <div className="my-4 h-2.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-linear-to-r from-primary-dark to-primary transition-[width] duration-700 ease-out"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
+                    <div className="numeric flex justify-between text-xs text-muted-foreground">
                       <span>{money(monthIncome)} alcançados</span>
-                      <span>{Math.round(pct)}%</span>
+                      <span className="font-semibold text-primary-dark">{Math.round(pct)}%</span>
                     </div>
                     <GoalForm
                       goal={goal}
@@ -350,23 +457,53 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   );
 }
 
+const CHART_TOOLTIP = {
+  background: "var(--popover)",
+  border: "1px solid var(--border)",
+  borderRadius: "12px",
+  boxShadow: "var(--shadow-panel)",
+  fontSize: 12,
+  color: "var(--popover-foreground)",
+} as const;
+
 function Metric({
   label,
   value,
   hint,
   tone,
+  icon: Icon,
+  index = 0,
 }: {
   label: string;
   value: string;
   hint: string;
   tone?: "success" | "danger";
+  icon: typeof Wallet;
+  index?: number;
 }) {
   return (
-    <article className="panel p-5">
-      <div className="text-xs text-muted-foreground">{label}</div>
+    <article
+      className="panel panel-lift p-5 animate-fade-up"
+      style={{ animationDelay: `${index * 70}ms` }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-xs font-medium text-muted-foreground">{label}</div>
+        <span
+          className={cn(
+            "grid size-8 place-items-center rounded-lg",
+            tone === "success"
+              ? "bg-success-soft text-success"
+              : tone === "danger"
+                ? "bg-danger-soft text-destructive"
+                : "bg-primary-soft text-primary-dark",
+          )}
+        >
+          <Icon className="size-4" />
+        </span>
+      </div>
       <div
         className={cn(
-          "mt-2.5 text-2xl font-bold tracking-tight",
+          "numeric mt-3 text-2xl font-bold tracking-tight",
           tone === "success" && "text-success",
           tone === "danger" && "text-destructive",
         )}
@@ -431,7 +568,8 @@ function RecordsView({
   );
 
   const filtered = entries.filter((e) => {
-    const haystack = `${e.description} ${e.category} ${e.client} ${e.notes} ${e.payment}`.toLowerCase();
+    const haystack =
+      `${e.description} ${e.category} ${e.client} ${e.notes} ${e.payment}`.toLowerCase();
     return (
       (!search || haystack.includes(search.toLowerCase())) &&
       (!date || e.entry_date === date) &&
@@ -441,11 +579,11 @@ function RecordsView({
   });
 
   const selectClass =
-    "h-10 rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+    "h-10 rounded-lg border border-input bg-card px-3 text-sm outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40";
 
   return (
-    <section className="grid gap-4">
-      <div className="flex flex-wrap gap-2">
+    <section className="grid gap-4 animate-fade-up">
+      <div className="panel flex flex-wrap gap-2 p-3">
         <Input
           className="min-w-48 flex-1 bg-card"
           type="search"
@@ -507,34 +645,39 @@ function RecordsTable({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="panel p-5">
-      {title && <h2 className="mb-4 text-base font-semibold">{title}</h2>}
+    <div className="panel p-5 lg:p-6 animate-fade-up">
+      {title && <h2 className="mb-4 font-display text-base font-semibold">{title}</h2>}
       <div className="overflow-auto">
         <table className="w-full min-w-[680px] border-collapse">
           <thead>
             <tr className="text-left text-[11px] tracking-wider text-muted-foreground uppercase">
-              <th className="px-2 pb-3">Data</th>
-              <th className="px-2 pb-3">Descrição</th>
-              <th className="px-2 pb-3">Categoria</th>
-              {showPayment && <th className="px-2 pb-3">Pagamento</th>}
-              <th className="px-2 pb-3">Tipo</th>
-              <th className="px-2 pb-3 text-right">Valor</th>
+              <th className="px-2 pb-3 font-semibold">Data</th>
+              <th className="px-2 pb-3 font-semibold">Descrição</th>
+              <th className="px-2 pb-3 font-semibold">Categoria</th>
+              {showPayment && <th className="px-2 pb-3 font-semibold">Pagamento</th>}
+              <th className="px-2 pb-3 font-semibold">Tipo</th>
+              <th className="px-2 pb-3 text-right font-semibold">Valor</th>
               <th className="px-2 pb-3"></th>
             </tr>
           </thead>
           <tbody>
             {entries.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
                   Ainda não tem lançamentos. Comece por adicionar o primeiro.
                 </td>
               </tr>
             )}
             {entries.map((e) => (
-              <tr key={e.id} className="border-t border-border">
-                <td className="px-2 py-3 text-sm">{formatDate(e.entry_date)}</td>
+              <tr
+                key={e.id}
+                className="group border-t border-border transition-colors hover:bg-accent/40"
+              >
+                <td className="numeric px-2 py-3 text-sm whitespace-nowrap">
+                  {formatDate(e.entry_date)}
+                </td>
                 <td className="px-2 py-3 text-sm">
-                  <strong>{e.description}</strong>
+                  <strong className="font-semibold">{e.description}</strong>
                   {e.client && <div className="text-xs text-muted-foreground">{e.client}</div>}
                 </td>
                 <td className="px-2 py-3 text-xs text-muted-foreground">{e.category}</td>
@@ -544,41 +687,48 @@ function RecordsTable({
                 <td className="px-2 py-3">
                   <span
                     className={cn(
-                      "rounded-full px-2 py-1 text-[11px] font-bold",
+                      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold",
                       e.type === "income"
                         ? "bg-success-soft text-success"
                         : "bg-danger-soft text-destructive",
                     )}
                   >
+                    {e.type === "income" ? (
+                      <ArrowUpRight className="size-3" />
+                    ) : (
+                      <ArrowDownRight className="size-3" />
+                    )}
                     {e.type === "income" ? "Entrada" : "Saída"}
                   </span>
                 </td>
                 <td
                   className={cn(
-                    "px-2 py-3 text-right text-sm font-bold",
+                    "numeric px-2 py-3 text-right text-sm font-bold whitespace-nowrap",
                     e.type === "income" ? "text-success" : "text-destructive",
                   )}
                 >
                   {e.type === "income" ? "+" : "−"} {money(Number(e.value))}
                 </td>
                 <td className="px-2 py-3 text-right whitespace-nowrap">
-                  <button
-                    className="px-1.5 text-muted-foreground hover:text-primary-dark"
-                    onClick={() => onEdit(e)}
-                    aria-label="Editar"
-                  >
-                    ✎
-                  </button>
-                  <button
-                    className="px-1.5 text-muted-foreground hover:text-destructive"
-                    onClick={() => {
-                      if (confirm("Eliminar este lançamento em todos os dispositivos?"))
-                        onDelete(e.id);
-                    }}
-                    aria-label="Eliminar"
-                  >
-                    ×
-                  </button>
+                  <div className="inline-flex gap-1 opacity-60 transition-opacity group-hover:opacity-100">
+                    <button
+                      className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-primary-dark"
+                      onClick={() => onEdit(e)}
+                      aria-label="Editar"
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-soft hover:text-destructive"
+                      onClick={() => {
+                        if (confirm("Eliminar este lançamento em todos os dispositivos?"))
+                          onDelete(e.id);
+                      }}
+                      aria-label="Eliminar"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -603,10 +753,10 @@ function ReportsView({ entries }: { entries: Entry[] }) {
   }, [entries]);
 
   return (
-    <section className="grid gap-4 lg:grid-cols-[1.4fr_0.9fr]">
-      <div className="panel p-5">
-        <h2 className="text-base font-semibold">Saídas por categoria</h2>
-        <div className="mt-4 h-72">
+    <section className="grid gap-4 animate-fade-up lg:grid-cols-[1.4fr_0.9fr]">
+      <div className="panel panel-crown p-5 lg:p-6">
+        <h2 className="font-display text-base font-semibold">Saídas por categoria</h2>
+        <div className="mt-5 h-72">
           {byCategory.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Adicione saídas para ver os gastos por categoria.
@@ -615,16 +765,31 @@ function ReportsView({ entries }: { entries: Entry[] }) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byCategory} layout="vertical" margin={{ left: 20 }}>
                 <XAxis type="number" hide />
-                <YAxis type="category" dataKey="name" width={110} tickLine={false} axisLine={false} fontSize={12} />
-                <Tooltip formatter={(v: number) => money(Number(v))} />
-                <Bar dataKey="total" fill="var(--destructive)" radius={8} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={110}
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={12}
+                  stroke="var(--muted-foreground)"
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--accent)" }}
+                  contentStyle={CHART_TOOLTIP}
+                  formatter={(v: number) => money(Number(v))}
+                />
+                <Bar dataKey="total" fill="var(--destructive)" radius={8} animationDuration={700} />
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
       </div>
-      <div className="panel grid gap-5 p-5">
-        <Summary label="Margem líquida" value={`${t.income ? Math.round((t.balance / t.income) * 100) : 0}%`} />
+      <div className="panel grid gap-5 p-5 lg:p-6">
+        <Summary
+          label="Margem líquida"
+          value={`${t.income ? Math.round((t.balance / t.income) * 100) : 0}%`}
+        />
         <Summary
           label="Média por lançamento"
           value={money(entries.length ? (t.income + t.expense) / entries.length : 0)}
@@ -638,8 +803,8 @@ function ReportsView({ entries }: { entries: Entry[] }) {
 function Summary({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-2xl font-bold tracking-tight">{value}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="numeric text-2xl font-bold tracking-tight">{value}</div>
     </div>
   );
 }
@@ -664,9 +829,9 @@ function SettingsView({
   const { state, lastSyncedAt, pending } = useSync();
 
   return (
-    <section className="grid gap-4 lg:grid-cols-2">
-      <div className="panel p-5">
-        <h2 className="text-base font-semibold">Perfil</h2>
+    <section className="grid gap-4 animate-fade-up lg:grid-cols-2">
+      <div className="panel p-5 lg:p-6">
+        <h2 className="font-display text-base font-semibold">Perfil</h2>
         <form
           className="mt-4 grid gap-4"
           onSubmit={(e) => {
@@ -692,35 +857,51 @@ function SettingsView({
         </form>
       </div>
 
-      <div className="panel p-5">
-        <h2 className="text-base font-semibold">Sincronização</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Todos os dados vivem na nuvem, na sua conta. Entre com o mesmo e-mail no iPhone e no
-          computador para ver exatamente os mesmos lançamentos.
-        </p>
-        <dl className="mt-4 grid gap-3 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Estado</dt>
-            <dd>
-              <SyncBadge />
-            </dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Última sincronização</dt>
-            <dd>{lastSyncedAt ? lastSyncedAt.toLocaleTimeString("pt-PT") : "—"}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Alterações por enviar</dt>
-            <dd>{pending}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Ligação em tempo real</dt>
-            <dd>{state === "synced" ? "Ativa" : state === "offline" ? "Sem internet" : "A ligar"}</dd>
-          </div>
-        </dl>
-        <Button variant="outline" className="mt-6" onClick={onSignOut}>
-          Terminar sessão
-        </Button>
+      <div className="grid gap-4">
+        <div className="panel p-5 lg:p-6">
+          <h2 className="font-display text-base font-semibold">Sincronização</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Todos os dados vivem na nuvem, na sua conta. Entre com o mesmo e-mail no iPhone e no
+            computador para ver exatamente os mesmos lançamentos.
+          </p>
+          <dl className="mt-4 grid gap-3 text-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">Estado</dt>
+              <dd>
+                <SyncBadge />
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Última sincronização</dt>
+              <dd className="numeric">
+                {lastSyncedAt ? lastSyncedAt.toLocaleTimeString("pt-PT") : "—"}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Alterações por enviar</dt>
+              <dd className="numeric">{pending}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Ligação em tempo real</dt>
+              <dd>
+                {state === "synced" ? "Ativa" : state === "offline" ? "Sem internet" : "A ligar"}
+              </dd>
+            </div>
+          </dl>
+          <Button variant="outline" className="mt-6" onClick={onSignOut}>
+            <LogOut className="size-4" />
+            Terminar sessão
+          </Button>
+        </div>
+
+        <div className="panel p-5 lg:p-6">
+          <h2 className="font-display text-base font-semibold">Aparência</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Escolha entre o tema claro, o tema escuro premium ou deixe seguir automaticamente as
+            definições do seu dispositivo.
+          </p>
+          <ThemeToggle className="mt-4" />
+        </div>
       </div>
     </section>
   );
