@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+
+import { deleteAccount } from "@/lib/account.functions";
+
 import {
   Area,
   AreaChart,
@@ -826,7 +829,12 @@ function SettingsView({
 }) {
   const [company, setCompany] = useState(companyName);
   const [owner, setOwner] = useState(ownerName);
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const { state, lastSyncedAt, pending } = useSync();
+
 
   return (
     <section className="grid gap-4 animate-fade-up lg:grid-cols-2">
@@ -895,6 +903,45 @@ function SettingsView({
         </div>
 
         <div className="panel p-5 lg:p-6">
+          <h2 className="font-display text-base font-semibold">Segurança da conta</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Defina uma nova palavra-passe. Aplica-se de imediato em todos os dispositivos.
+          </p>
+          <form
+            className="mt-4 grid gap-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (newPassword.length < 6) {
+                toast.error("A palavra-passe tem de ter pelo menos 6 caracteres.");
+                return;
+              }
+              setChangingPassword(true);
+              const { error } = await supabase.auth.updateUser({ password: newPassword });
+              setChangingPassword(false);
+              if (error) toast.error(error.message);
+              else {
+                setNewPassword("");
+                toast.success("Palavra-passe alterada.");
+              }
+            }}
+          >
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-password">Nova palavra-passe</Label>
+              <Input
+                id="new-password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={changingPassword} className="justify-self-start">
+              {changingPassword ? "A alterar…" : "Alterar palavra-passe"}
+            </Button>
+          </form>
+        </div>
+
+        <div className="panel p-5 lg:p-6">
           <h2 className="font-display text-base font-semibold">Aparência</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Escolha entre o tema claro, o tema escuro premium ou deixe seguir automaticamente as
@@ -902,7 +949,46 @@ function SettingsView({
           </p>
           <ThemeToggle className="mt-4" />
         </div>
+
+        <div className="panel border-destructive/40 p-5 lg:p-6">
+          <h2 className="font-display text-base font-semibold text-destructive">Apagar conta</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Elimina permanentemente a sua conta e todos os lançamentos, em todos os dispositivos
+            (RGPD, direito ao apagamento). Esta ação não pode ser revertida.
+          </p>
+          <div className="mt-4 grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="delete-confirm">
+                Escreva <span className="font-semibold">APAGAR</span> para confirmar
+              </Label>
+              <Input
+                id="delete-confirm"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+              />
+            </div>
+            <Button
+              variant="destructive"
+              className="justify-self-start"
+              disabled={deleteConfirm.trim().toUpperCase() !== "APAGAR" || deleting}
+              onClick={async () => {
+                setDeleting(true);
+                try {
+                  await deleteAccount();
+                  await supabase.auth.signOut();
+                  window.location.href = "/";
+                } catch (error) {
+                  setDeleting(false);
+                  toast.error((error as Error).message ?? "Não foi possível apagar a conta.");
+                }
+              }}
+            >
+              {deleting ? "A apagar…" : "Apagar conta definitivamente"}
+            </Button>
+          </div>
+        </div>
       </div>
+
     </section>
   );
 }
