@@ -40,26 +40,27 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
 
-  async function handleGoogle() {
-    setGoogleLoading(true);
+  async function handleOAuth(provider: "google" | "apple") {
+    setOauthLoading(provider);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
+      const result = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: window.location.origin,
       });
       if (result.error) {
-        toast.error(result.error.message ?? "Não foi possível entrar com o Google.");
+        toast.error(result.error.message ?? "Não foi possível continuar.");
         return;
       }
       if (result.redirected) return;
       void navigate({ to: "/painel", replace: true });
     } catch (error) {
-      toast.error((error as Error).message ?? "Não foi possível entrar com o Google.");
+      toast.error((error as Error).message ?? "Não foi possível continuar.");
     } finally {
-      setGoogleLoading(false);
+      setOauthLoading(null);
     }
   }
+
 
   async function handleForgotPassword() {
     if (!email) {
