@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+
+import { deleteAccount } from "@/lib/account.functions";
+
 import {
   Area,
   AreaChart,
