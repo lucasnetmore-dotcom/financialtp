@@ -40,6 +40,39 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  async function handleGoogle() {
+    setGoogleLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? "Não foi possível entrar com o Google.");
+        return;
+      }
+      if (result.redirected) return;
+      void navigate({ to: "/painel", replace: true });
+    } catch (error) {
+      toast.error((error as Error).message ?? "Não foi possível entrar com o Google.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      toast.error("Escreva primeiro o seu e-mail.");
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+    if (error) toast.error(error.message);
+    else toast.success("Enviámos-lhe um e-mail para redefinir a palavra-passe.");
+  }
+
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
