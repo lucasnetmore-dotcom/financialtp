@@ -826,7 +826,12 @@ function SettingsView({
 }) {
   const [company, setCompany] = useState(companyName);
   const [owner, setOwner] = useState(ownerName);
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const { state, lastSyncedAt, pending } = useSync();
+
 
   return (
     <section className="grid gap-4 animate-fade-up lg:grid-cols-2">
