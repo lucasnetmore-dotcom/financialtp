@@ -436,6 +436,11 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                 ownerName={profileQuery.data?.owner_name ?? ""}
                 saving={saveProfile.isPending}
                 email={email}
+                entries={entries}
+                settings={settingsQuery.data ?? null}
+                profile={profileQuery.data ?? null}
+                onRestore={(list) => restoreBackup.mutate(list)}
+                restoring={restoreBackup.isPending}
                 onSave={(patch) =>
                   saveProfile.mutate(patch, {
                     onSuccess: () => toast.success("Perfil atualizado em todos os dispositivos."),
