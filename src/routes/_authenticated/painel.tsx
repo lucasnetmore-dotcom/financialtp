@@ -17,10 +17,21 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { deleteAccount } from "@/lib/account.functions";
+import {
+  buildBackup,
+  downloadBackup,
+  loadBackup,
+  maybeAutoBackup,
+  parseBackup,
+  readHistory,
+  storeBackup,
+  type BackupRecord,
+} from "@/lib/backup";
+import { exportCsv, exportExcel, exportPdf } from "@/lib/export";
 
 import {
   Area,
@@ -126,6 +137,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const deleteEntry = useDeleteEntry(userId);
   const saveSettings = useSaveSettings(userId);
   const saveProfile = useSaveProfile(userId);
+  const restoreBackup = useRestoreBackup(userId);
 
   const entries = entriesQuery.data ?? [];
   const goal = Number(settingsQuery.data?.monthly_goal ?? 0);
@@ -133,6 +145,11 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const today = totals(entries.filter((e) => e.entry_date === todayISO()));
   const monthIncome = totals(entries.filter((e) => e.entry_date.slice(0, 7) === monthISO())).income;
   const pct = goal ? Math.min(100, (monthIncome / goal) * 100) : 0;
+
+  useEffect(() => {
+    maybeAutoBackup(entries, settingsQuery.data ?? null, profileQuery.data ?? null);
+    // backup automático local, uma vez por dia
+  }, [entries.length, settingsQuery.data, profileQuery.data]);
 
   function openNew(withdrawal?: boolean) {
     setEditing(null);
