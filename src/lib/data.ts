@@ -239,3 +239,40 @@ export function useSaveProfile(userId: string | null) {
     onError: (error: Error) => markError(error.message || "Não foi possível guardar o perfil."),
   });
 }
+
+export function useRestoreBackup(userId: string | null) {
+  const queryClient = useQueryClient();
+  const { markSyncing, markSynced, markError } = useSync();
+
+  return useMutation({
+    mutationFn: async (entries: Entry[]) => {
+      if (!userId) throw new Error("Sessão terminada.");
+      const rows = entries.map((e) => ({
+        id: e.id,
+        user_id: userId,
+        type: e.type,
+        value: Number(e.value),
+        entry_date: e.entry_date,
+        category: e.category ?? "Geral",
+        description: e.description ?? "",
+        payment: e.payment ?? "",
+        client: e.client ?? "",
+        notes: e.notes ?? "",
+      }));
+      for (let i = 0; i < rows.length; i += 200) {
+        const { error } = await supabase
+          .from("entries")
+          .upsert(rows.slice(i, i + 200) as never, { onConflict: "id" });
+        if (error) throw error;
+      }
+      return rows.length;
+    },
+    onMutate: () => markSyncing(),
+    onSuccess: (count) => {
+      markSynced();
+      invalidate(queryClient, userId);
+      toast.success(`Restauro concluído — ${count} lançamentos.`);
+    },
+    onError: (error: Error) => markError(error.message || "Não foi possível restaurar."),
+  });
+}
