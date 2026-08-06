@@ -3,7 +3,10 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  DatabaseBackup,
   Download,
+  FileSpreadsheet,
+  FileText,
   LayoutDashboard,
   ListOrdered,
   LogOut,
@@ -17,10 +20,21 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { deleteAccount } from "@/lib/account.functions";
+import {
+  buildBackup,
+  downloadBackup,
+  loadBackup,
+  maybeAutoBackup,
+  parseBackup,
+  readHistory,
+  storeBackup,
+  type BackupRecord,
+} from "@/lib/backup";
+import { exportCsv, exportExcel, exportPdf } from "@/lib/export";
 
 import {
   Area,
@@ -49,6 +63,7 @@ import {
   useSaveEntry,
   useSaveProfile,
   useSaveSettings,
+  useRestoreBackup,
   useSettings,
   type EntryInput,
 } from "@/lib/data";
@@ -60,6 +75,8 @@ import {
   todayISO,
   totals,
   type Entry,
+  type Profile,
+  type Settings,
 } from "@/lib/finance";
 import { SyncProvider, useSync } from "@/lib/sync";
 import { cn } from "@/lib/utils";
@@ -126,6 +143,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const deleteEntry = useDeleteEntry(userId);
   const saveSettings = useSaveSettings(userId);
   const saveProfile = useSaveProfile(userId);
+  const restoreBackup = useRestoreBackup(userId);
 
   const entries = entriesQuery.data ?? [];
   const goal = Number(settingsQuery.data?.monthly_goal ?? 0);
@@ -133,6 +151,11 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const today = totals(entries.filter((e) => e.entry_date === todayISO()));
   const monthIncome = totals(entries.filter((e) => e.entry_date.slice(0, 7) === monthISO())).income;
   const pct = goal ? Math.min(100, (monthIncome / goal) * 100) : 0;
+
+  useEffect(() => {
+    maybeAutoBackup(entries, settingsQuery.data ?? null, profileQuery.data ?? null);
+    // backup automático local, uma vez por dia
+  }, [entries.length, settingsQuery.data, profileQuery.data]);
 
   function openNew(withdrawal?: boolean) {
     setEditing(null);
@@ -157,7 +180,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    void navigate({ to: "/auth", replace: true });
+    void navigate({ to: "/auth", search: { modo: "entrar" }, replace: true });
   }
 
   return (
@@ -240,10 +263,40 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <SyncBadge />
-            <Button variant="outline" onClick={() => exportCsv(entries)}>
-              <Download className="size-4" />
-              Exportar CSV
-            </Button>
+            <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5"
+                onClick={() =>
+                  void exportPdf(entries, {
+                    company: profileQuery.data?.company_name ?? "Relatório financeiro",
+                    currency: settingsQuery.data?.currency ?? "EUR",
+                  })
+                }
+              >
+                <FileText className="size-4" />
+                PDF
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5"
+                onClick={() => void exportExcel(entries, settingsQuery.data?.currency ?? "EUR")}
+              >
+                <FileSpreadsheet className="size-4" />
+                Excel
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5"
+                onClick={() => exportCsv(entries)}
+              >
+                <Download className="size-4" />
+                CSV
+              </Button>
+            </div>
             <Button onClick={() => openNew()} className="shadow-sm">
               <Plus className="size-4" />
               Novo lançamento
@@ -436,6 +489,11 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                 ownerName={profileQuery.data?.owner_name ?? ""}
                 saving={saveProfile.isPending}
                 email={email}
+                entries={entries}
+                settings={settingsQuery.data ?? null}
+                profile={profileQuery.data ?? null}
+                onRestore={(list) => restoreBackup.mutate(list)}
+                restoring={restoreBackup.isPending}
                 onSave={(patch) =>
                   saveProfile.mutate(patch, {
                     onSuccess: () => toast.success("Perfil atualizado em todos os dispositivos."),
@@ -817,6 +875,11 @@ function SettingsView({
   ownerName,
   email,
   saving,
+  entries,
+  settings,
+  profile,
+  restoring,
+  onRestore,
   onSave,
   onSignOut,
 }: {
@@ -824,6 +887,11 @@ function SettingsView({
   ownerName: string;
   email: string | null;
   saving: boolean;
+  entries: Entry[];
+  settings: Settings | null;
+  profile: Profile | null;
+  restoring: boolean;
+  onRestore: (entries: Entry[]) => void;
   onSave: (patch: { company_name: string; owner_name: string }) => void;
   onSignOut: () => void;
 }) {
@@ -834,6 +902,7 @@ function SettingsView({
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const { state, lastSyncedAt, pending } = useSync();
+  const [history, setHistory] = useState<BackupRecord[]>(() => readHistory());
 
 
   return (
@@ -942,6 +1011,93 @@ function SettingsView({
         </div>
 
         <div className="panel p-5 lg:p-6">
+          <h2 className="flex items-center gap-2 font-display text-base font-semibold">
+            <DatabaseBackup className="size-4 text-primary" />
+            Backup e restauro
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            É criado um backup automático por dia neste dispositivo. Pode também guardar um
+            ficheiro seguro no computador e restaurá-lo num clique.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const backup = buildBackup(entries, settings, profile);
+                storeBackup(backup, false);
+                downloadBackup(backup);
+                setHistory(readHistory());
+                toast.success("Backup criado e transferido.");
+              }}
+            >
+              <Download className="size-4" />
+              Criar backup agora
+            </Button>
+            <label className="inline-flex">
+              <input
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  try {
+                    const backup = parseBackup(await file.text());
+                    onRestore(backup.entries);
+                  } catch (error) {
+                    toast.error((error as Error).message);
+                  }
+                }}
+              />
+              <Button asChild variant="outline" disabled={restoring}>
+                <span>{restoring ? "A restaurar…" : "Restaurar de ficheiro"}</span>
+              </Button>
+            </label>
+          </div>
+
+          <div className="mt-5">
+            <p className="eyebrow">Histórico neste dispositivo</p>
+            {history.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">Ainda sem backups guardados.</p>
+            ) : (
+              <ul className="mt-2 grid gap-2">
+                {history.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2 text-sm"
+                  >
+                    <span className="min-w-0">
+                      <span className="numeric">
+                        {new Date(item.created_at).toLocaleString("pt-PT")}
+                      </span>
+                      <span className="ml-2 text-muted-foreground">
+                        {item.entries} lançamentos · {item.auto ? "automático" : "manual"}
+                      </span>
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={restoring}
+                      onClick={() => {
+                        const backup = loadBackup(item.id);
+                        if (!backup) {
+                          toast.error("Backup indisponível.");
+                          return;
+                        }
+                        onRestore(backup.entries);
+                      }}
+                    >
+                      Restaurar
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="panel p-5 lg:p-6">
           <h2 className="font-display text-base font-semibold">Aparência</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Escolha entre o tema claro, o tema escuro premium ou deixe seguir automaticamente as
@@ -991,39 +1147,4 @@ function SettingsView({
 
     </section>
   );
-}
-
-function exportCsv(entries: Entry[]) {
-  const header = [
-    "Tipo",
-    "Valor",
-    "Data",
-    "Categoria",
-    "Descrição",
-    "Pagamento",
-    "Cliente",
-    "Observações",
-  ];
-  const rows = entries.map((e) =>
-    [
-      e.type === "income" ? "Entrada" : "Saída",
-      e.value,
-      e.entry_date,
-      e.category,
-      e.description,
-      e.payment,
-      e.client,
-      e.notes,
-    ]
-      .map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`)
-      .join(";"),
-  );
-  const blob = new Blob([[header.join(";"), ...rows].join("\n")], {
-    type: "text/csv;charset=utf-8",
-  });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "lancamentos.csv";
-  a.click();
-  URL.revokeObjectURL(a.href);
 }
