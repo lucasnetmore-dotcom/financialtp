@@ -60,6 +60,7 @@ import {
   useSaveEntry,
   useSaveProfile,
   useSaveSettings,
+  useRestoreBackup,
   useSettings,
   type EntryInput,
 } from "@/lib/data";
@@ -71,6 +72,8 @@ import {
   todayISO,
   totals,
   type Entry,
+  type Profile,
+  type Settings,
 } from "@/lib/finance";
 import { SyncProvider, useSync } from "@/lib/sync";
 import { cn } from "@/lib/utils";
@@ -1013,39 +1016,4 @@ function SettingsView({
 
     </section>
   );
-}
-
-function exportCsv(entries: Entry[]) {
-  const header = [
-    "Tipo",
-    "Valor",
-    "Data",
-    "Categoria",
-    "Descrição",
-    "Pagamento",
-    "Cliente",
-    "Observações",
-  ];
-  const rows = entries.map((e) =>
-    [
-      e.type === "income" ? "Entrada" : "Saída",
-      e.value,
-      e.entry_date,
-      e.category,
-      e.description,
-      e.payment,
-      e.client,
-      e.notes,
-    ]
-      .map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`)
-      .join(";"),
-  );
-  const blob = new Blob([[header.join(";"), ...rows].join("\n")], {
-    type: "text/csv;charset=utf-8",
-  });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "lancamentos.csv";
-  a.click();
-  URL.revokeObjectURL(a.href);
 }
