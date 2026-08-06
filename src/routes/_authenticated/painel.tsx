@@ -3,7 +3,10 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  DatabaseBackup,
   Download,
+  FileSpreadsheet,
+  FileText,
   LayoutDashboard,
   ListOrdered,
   LogOut,
@@ -872,6 +875,11 @@ function SettingsView({
   ownerName,
   email,
   saving,
+  entries,
+  settings,
+  profile,
+  restoring,
+  onRestore,
   onSave,
   onSignOut,
 }: {
@@ -879,6 +887,11 @@ function SettingsView({
   ownerName: string;
   email: string | null;
   saving: boolean;
+  entries: Entry[];
+  settings: Settings | null;
+  profile: Profile | null;
+  restoring: boolean;
+  onRestore: (entries: Entry[]) => void;
   onSave: (patch: { company_name: string; owner_name: string }) => void;
   onSignOut: () => void;
 }) {
@@ -889,6 +902,7 @@ function SettingsView({
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const { state, lastSyncedAt, pending } = useSync();
+  const [history, setHistory] = useState<BackupRecord[]>(() => readHistory());
 
 
   return (
@@ -994,6 +1008,93 @@ function SettingsView({
               {changingPassword ? "A alterar…" : "Alterar palavra-passe"}
             </Button>
           </form>
+        </div>
+
+        <div className="panel p-5 lg:p-6">
+          <h2 className="flex items-center gap-2 font-display text-base font-semibold">
+            <DatabaseBackup className="size-4 text-primary" />
+            Backup e restauro
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            É criado um backup automático por dia neste dispositivo. Pode também guardar um
+            ficheiro seguro no computador e restaurá-lo num clique.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const backup = buildBackup(entries, settings, profile);
+                storeBackup(backup, false);
+                downloadBackup(backup);
+                setHistory(readHistory());
+                toast.success("Backup criado e transferido.");
+              }}
+            >
+              <Download className="size-4" />
+              Criar backup agora
+            </Button>
+            <label className="inline-flex">
+              <input
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  try {
+                    const backup = parseBackup(await file.text());
+                    onRestore(backup.entries);
+                  } catch (error) {
+                    toast.error((error as Error).message);
+                  }
+                }}
+              />
+              <Button asChild variant="outline" disabled={restoring}>
+                <span>{restoring ? "A restaurar…" : "Restaurar de ficheiro"}</span>
+              </Button>
+            </label>
+          </div>
+
+          <div className="mt-5">
+            <p className="eyebrow">Histórico neste dispositivo</p>
+            {history.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">Ainda sem backups guardados.</p>
+            ) : (
+              <ul className="mt-2 grid gap-2">
+                {history.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2 text-sm"
+                  >
+                    <span className="min-w-0">
+                      <span className="numeric">
+                        {new Date(item.created_at).toLocaleString("pt-PT")}
+                      </span>
+                      <span className="ml-2 text-muted-foreground">
+                        {item.entries} lançamentos · {item.auto ? "automático" : "manual"}
+                      </span>
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={restoring}
+                      onClick={() => {
+                        const backup = loadBackup(item.id);
+                        if (!backup) {
+                          toast.error("Backup indisponível.");
+                          return;
+                        }
+                        onRestore(backup.entries);
+                      }}
+                    >
+                      Restaurar
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         <div className="panel p-5 lg:p-6">
