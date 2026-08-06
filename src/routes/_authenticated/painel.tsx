@@ -260,10 +260,40 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <SyncBadge />
-            <Button variant="outline" onClick={() => exportCsv(entries)}>
-              <Download className="size-4" />
-              Exportar CSV
-            </Button>
+            <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5"
+                onClick={() =>
+                  void exportPdf(entries, {
+                    company: profileQuery.data?.company_name ?? "Relatório financeiro",
+                    currency: settingsQuery.data?.currency ?? "EUR",
+                  })
+                }
+              >
+                <FileText className="size-4" />
+                PDF
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5"
+                onClick={() => void exportExcel(entries, settingsQuery.data?.currency ?? "EUR")}
+              >
+                <FileSpreadsheet className="size-4" />
+                Excel
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5"
+                onClick={() => exportCsv(entries)}
+              >
+                <Download className="size-4" />
+                CSV
+              </Button>
+            </div>
             <Button onClick={() => openNew()} className="shadow-sm">
               <Plus className="size-4" />
               Novo lançamento
