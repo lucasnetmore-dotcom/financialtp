@@ -157,7 +157,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    void navigate({ to: "/auth", replace: true });
+    void navigate({ to: "/auth", search: { modo: "entrar" }, replace: true });
   }
 
   return (
