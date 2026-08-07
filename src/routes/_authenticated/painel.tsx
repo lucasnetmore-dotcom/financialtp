@@ -49,6 +49,8 @@ import {
 } from "recharts";
 
 import { EntryDialog } from "@/components/EntryDialog";
+import { NotificationSettings } from "@/components/NotificationSettings";
+import { NotificationsBell } from "@/components/NotificationsBell";
 import { SyncBadge } from "@/components/SyncBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
