@@ -49,6 +49,8 @@ import {
 } from "recharts";
 
 import { EntryDialog } from "@/components/EntryDialog";
+import { NotificationSettings } from "@/components/NotificationSettings";
+import { NotificationsBell } from "@/components/NotificationsBell";
 import { SyncBadge } from "@/components/SyncBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -263,6 +265,8 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <SyncBadge />
+            <NotificationsBell entries={entries} settings={settingsQuery.data ?? null} />
+
             <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5">
               <Button
                 variant="ghost"
@@ -934,7 +938,10 @@ function SettingsView({
         </form>
       </div>
 
+      <NotificationSettings />
+
       <div className="grid gap-4">
+
         <div className="panel p-5 lg:p-6">
           <h2 className="font-display text-base font-semibold">Sincronização</h2>
           <p className="mt-2 text-sm text-muted-foreground">
