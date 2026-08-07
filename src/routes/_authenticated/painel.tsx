@@ -265,6 +265,8 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <SyncBadge />
+            <NotificationsBell entries={entries} settings={settingsQuery.data ?? null} />
+
             <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5">
               <Button
                 variant="ghost"
