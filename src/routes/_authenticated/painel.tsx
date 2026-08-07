@@ -938,7 +938,10 @@ function SettingsView({
         </form>
       </div>
 
+      <NotificationSettings />
+
       <div className="grid gap-4">
+
         <div className="panel p-5 lg:p-6">
           <h2 className="font-display text-base font-semibold">Sincronização</h2>
           <p className="mt-2 text-sm text-muted-foreground">
