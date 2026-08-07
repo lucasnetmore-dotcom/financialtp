@@ -10,7 +10,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#0d0b07',
-    title: 'FINANCEIRO TP',
+    title: 'Prosper Finanças Premium',
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
