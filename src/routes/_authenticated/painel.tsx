@@ -245,8 +245,21 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
           })}
         </nav>
 
+        <Link
+          to="/planos"
+          className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-border bg-card/60 px-3 py-2.5 text-xs transition-colors hover:bg-accent/60"
+        >
+          <span className="font-semibold">Plano {planAccess.planName}</span>
+          <span className="text-muted-foreground">
+            {planAccess.limit === null
+              ? "Ilimitado"
+              : `${planAccess.usedThisMonth}/${planAccess.limit}`}
+          </span>
+        </Link>
+
         <div className="mt-auto hidden pt-8 lg:block">
           <ThemeToggle />
+
           <button
             onClick={handleSignOut}
             className="mt-4 flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-destructive"
