@@ -1,8 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Check, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { createCheckoutSession } from "@/lib/billing.functions";
 import { useAuthUser, useEntries, useProfile } from "@/lib/data";
 import { getPlanAccess, PLANS } from "@/lib/plans";
 import { cn } from "@/lib/utils";
@@ -33,6 +37,48 @@ function PlanosPage() {
   const entriesQuery = useEntries(userId);
   const profileQuery = useProfile(userId);
   const access = getPlanAccess(profileQuery.data, entriesQuery.data ?? []);
+  const startCheckout = useServerFn(createCheckoutSession);
+  const queryClient = useQueryClient();
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  // Regresso do Stripe Checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("checkout");
+    if (!result) return;
+    window.history.replaceState({}, "", window.location.pathname);
+
+    if (result === "cancel") {
+      toast.info("Pagamento cancelado.");
+      return;
+    }
+    toast.success("Pagamento confirmado! A ativar o seu plano…");
+
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      tries += 1;
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+      if (tries >= 6) window.clearInterval(timer);
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [queryClient]);
+
+  async function handleUpgrade(plan: "pro" | "business") {
+    setLoadingPlan(plan);
+    try {
+      const { url } = await startCheckout({
+        data: { plan, origin: window.location.origin },
+      });
+      window.location.href = url;
+    } catch (error) {
+      setLoadingPlan(null);
+      toast.error(
+        error instanceof Error ? error.message : "Não foi possível abrir o pagamento.",
+      );
+    }
+  }
+
+
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-5 py-9 lg:px-10">
@@ -112,13 +158,17 @@ function PlanosPage() {
                 ) : (
                   <Button
                     className="w-full"
-                    onClick={() =>
-                      toast.info(
-                        `Pagamentos ainda não estão ativos. O upgrade para ${plan.name} chega em breve.`,
-                      )
-                    }
+                    disabled={loadingPlan !== null}
+                    onClick={() => void handleUpgrade(plan.id as "pro" | "business")}
                   >
-                    Upgrade para {plan.name}
+                    {loadingPlan === plan.id ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        A abrir pagamento…
+                      </>
+                    ) : (
+                      <>Upgrade para {plan.name}</>
+                    )}
                   </Button>
                 )}
               </div>
