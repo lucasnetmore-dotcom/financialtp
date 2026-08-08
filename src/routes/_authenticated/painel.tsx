@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -80,6 +80,7 @@ import {
   type Profile,
   type Settings,
 } from "@/lib/finance";
+import { getPlanAccess } from "@/lib/plans";
 import { SyncProvider, useSync } from "@/lib/sync";
 import { cn } from "@/lib/utils";
 
@@ -153,6 +154,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const today = totals(entries.filter((e) => e.entry_date === todayISO()));
   const monthIncome = totals(entries.filter((e) => e.entry_date.slice(0, 7) === monthISO())).income;
   const pct = goal ? Math.min(100, (monthIncome / goal) * 100) : 0;
+  const planAccess = getPlanAccess(profileQuery.data, entries);
 
   useEffect(() => {
     maybeAutoBackup(entries, settingsQuery.data ?? null, profileQuery.data ?? null);
@@ -160,6 +162,12 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   }, [entries.length, settingsQuery.data, profileQuery.data]);
 
   function openNew(withdrawal?: boolean) {
+    if (!planAccess.canCreateEntry) {
+      toast.warning(planAccess.limitMessage, {
+        action: { label: "Ver planos", onClick: () => void navigate({ to: "/planos" }) },
+      });
+      return;
+    }
     setEditing(null);
     setPreset(withdrawal ? "withdrawal" : undefined);
     setDialogOpen(true);
@@ -172,6 +180,12 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   }
 
   function handleSubmit(input: EntryInput) {
+    if (!editing && !planAccess.canCreateEntry) {
+      toast.warning(planAccess.limitMessage, {
+        action: { label: "Ver planos", onClick: () => void navigate({ to: "/planos" }) },
+      });
+      return;
+    }
     saveEntry.mutate(input, {
       onSuccess: () => {
         setDialogOpen(false);
@@ -237,8 +251,21 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
           })}
         </nav>
 
+        <Link
+          to="/planos"
+          className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-border bg-card/60 px-3 py-2.5 text-xs transition-colors hover:bg-accent/60"
+        >
+          <span className="font-semibold">Plano {planAccess.planName}</span>
+          <span className="text-muted-foreground">
+            {planAccess.limit === null
+              ? "Ilimitado"
+              : `${planAccess.usedThisMonth}/${planAccess.limit}`}
+          </span>
+        </Link>
+
         <div className="mt-auto hidden pt-8 lg:block">
           <ThemeToggle />
+
           <button
             onClick={handleSignOut}
             className="mt-4 flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-destructive"
