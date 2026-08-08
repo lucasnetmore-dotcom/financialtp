@@ -66,6 +66,9 @@ export type Database = {
           id: string
           owner_name: string | null
           plan: Database["public"]["Enums"]["app_plan"]
+          plan_status: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           updated_at: string
         }
         Insert: {
@@ -74,6 +77,9 @@ export type Database = {
           id: string
           owner_name?: string | null
           plan?: Database["public"]["Enums"]["app_plan"]
+          plan_status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -82,6 +88,9 @@ export type Database = {
           id?: string
           owner_name?: string | null
           plan?: Database["public"]["Enums"]["app_plan"]
+          plan_status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
         }
         Relationships: []
