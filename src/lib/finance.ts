@@ -27,6 +27,7 @@ export interface Profile {
   id: string;
   company_name: string;
   owner_name: string | null;
+  plan: "free" | "pro" | "business";
   created_at: string;
   updated_at: string;
 }
