@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.protect_plan_columns() FROM PUBLIC, anon, authenticated;
