@@ -1,8 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Check, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { createCheckoutSession } from "@/lib/billing.functions";
 import { useAuthUser, useEntries, useProfile } from "@/lib/data";
 import { getPlanAccess, PLANS } from "@/lib/plans";
 import { cn } from "@/lib/utils";
