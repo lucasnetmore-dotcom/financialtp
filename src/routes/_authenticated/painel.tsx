@@ -153,6 +153,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const today = totals(entries.filter((e) => e.entry_date === todayISO()));
   const monthIncome = totals(entries.filter((e) => e.entry_date.slice(0, 7) === monthISO())).income;
   const pct = goal ? Math.min(100, (monthIncome / goal) * 100) : 0;
+  const planAccess = getPlanAccess(profileQuery.data, entries);
 
   useEffect(() => {
     maybeAutoBackup(entries, settingsQuery.data ?? null, profileQuery.data ?? null);
