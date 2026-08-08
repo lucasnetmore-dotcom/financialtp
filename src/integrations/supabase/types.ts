@@ -65,6 +65,7 @@ export type Database = {
           created_at: string
           id: string
           owner_name: string | null
+          plan: Database["public"]["Enums"]["app_plan"]
           updated_at: string
         }
         Insert: {
@@ -72,6 +73,7 @@ export type Database = {
           created_at?: string
           id: string
           owner_name?: string | null
+          plan?: Database["public"]["Enums"]["app_plan"]
           updated_at?: string
         }
         Update: {
@@ -79,6 +81,7 @@ export type Database = {
           created_at?: string
           id?: string
           owner_name?: string | null
+          plan?: Database["public"]["Enums"]["app_plan"]
           updated_at?: string
         }
         Relationships: []
@@ -115,7 +118,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_plan: "free" | "pro" | "business"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -242,6 +245,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_plan: ["free", "pro", "business"],
+    },
   },
 } as const
