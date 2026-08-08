@@ -180,6 +180,12 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   }
 
   function handleSubmit(input: EntryInput) {
+    if (!editing && !planAccess.canCreateEntry) {
+      toast.warning(planAccess.limitMessage, {
+        action: { label: "Ver planos", onClick: () => void navigate({ to: "/planos" }) },
+      });
+      return;
+    }
     saveEntry.mutate(input, {
       onSuccess: () => {
         setDialogOpen(false);
