@@ -158,13 +158,17 @@ function PlanosPage() {
                 ) : (
                   <Button
                     className="w-full"
-                    onClick={() =>
-                      toast.info(
-                        `Pagamentos ainda não estão ativos. O upgrade para ${plan.name} chega em breve.`,
-                      )
-                    }
+                    disabled={loadingPlan !== null}
+                    onClick={() => void handleUpgrade(plan.id as "pro" | "business")}
                   >
-                    Upgrade para {plan.name}
+                    {loadingPlan === plan.id ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        A abrir pagamento…
+                      </>
+                    ) : (
+                      <>Upgrade para {plan.name}</>
+                    )}
                   </Button>
                 )}
               </div>
