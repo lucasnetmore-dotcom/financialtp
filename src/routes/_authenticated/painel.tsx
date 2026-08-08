@@ -80,6 +80,7 @@ import {
   type Profile,
   type Settings,
 } from "@/lib/finance";
+import { getPlanAccess } from "@/lib/plans";
 import { SyncProvider, useSync } from "@/lib/sync";
 import { cn } from "@/lib/utils";
 
