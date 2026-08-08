@@ -160,6 +160,12 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   }, [entries.length, settingsQuery.data, profileQuery.data]);
 
   function openNew(withdrawal?: boolean) {
+    if (!planAccess.canCreateEntry) {
+      toast.warning(planAccess.limitMessage, {
+        action: { label: "Ver planos", onClick: () => void navigate({ to: "/planos" }) },
+      });
+      return;
+    }
     setEditing(null);
     setPreset(withdrawal ? "withdrawal" : undefined);
     setDialogOpen(true);
