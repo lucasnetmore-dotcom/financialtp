@@ -12,6 +12,7 @@ import {
 } from "@/lib/notifications";
 
 const TOGGLES: { key: keyof NotificationPrefs; label: string; hint: string }[] = [
+  { key: "aiTip", label: "Dicas de IA", hint: "Insights sobre margem, meta e categorias." },
   { key: "goal", label: "Meta mensal", hint: "Avisa quando atinge a meta ou quando fica em risco." },
   { key: "negativeBalance", label: "Saldo negativo", hint: "Quando as saídas superam as entradas." },
   { key: "highSpend", label: "Gastos elevados", hint: "Dias com saídas acima da sua média." },
@@ -49,7 +50,7 @@ export function NotificationSettings() {
     <div className="panel p-5 lg:p-6">
       <h2 className="font-display text-base font-semibold">Notificações inteligentes</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Alertas calculados a partir dos seus lançamentos reais — nada sai do seu dispositivo.
+        Alertas e dicas de IA calculados a partir dos seus lançamentos — no dispositivo.
       </p>
 
       <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-accent/50 p-3.5">
