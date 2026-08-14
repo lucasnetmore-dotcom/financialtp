@@ -80,14 +80,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "FINANCEIRO TP — Gestão financeira sincronizada" },
+      { title: "Finance Flow AI — Gestão financeira sincronizada" },
       {
         name: "description",
         content:
           "Controle entradas, saídas e metas do seu negócio com sincronização em tempo real entre computador e iPhone.",
       },
-      { name: "author", content: "FINANCEIRO TP" },
-      { property: "og:title", content: "FINANCEIRO TP — Gestão financeira sincronizada" },
+      { name: "author", content: "Finance Flow AI" },
+      { property: "og:title", content: "Finance Flow AI — Gestão financeira sincronizada" },
       {
         property: "og:description",
         content: "Os mesmos dados, na mesma conta, em todos os seus dispositivos.",
@@ -98,7 +98,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "FINANCEIRO TP" },
+      { name: "apple-mobile-web-app-title", content: "Finance Flow AI" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -128,7 +128,6 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="pt" suppressHydrationWarning>
       <head>
         <HeadContent />
-        {/* Aplica o tema guardado antes da primeira pintura (sem "flash" branco). */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
@@ -138,7 +137,6 @@ function RootShell({ children }: { children: ReactNode }) {
     </html>
   );
 }
-
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -156,8 +154,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+        <Outlet />
         <Toaster richColors position="top-center" />
       </ThemeProvider>
     </QueryClientProvider>
