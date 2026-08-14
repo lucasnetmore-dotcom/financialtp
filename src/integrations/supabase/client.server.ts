@@ -29,8 +29,14 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
+const FALLBACK_SUPABASE_URL = 'https://hokwwlajifoxqkeldlsv.supabase.co';
+
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env['SUPABASE_URL'];
+  const fromEnvUrl = process.env['SUPABASE_URL'];
+  const isBrokenProject =
+    typeof fromEnvUrl === 'string' && fromEnvUrl.includes('yxaokofkcgfocqooniec');
+
+  const SUPABASE_URL = isBrokenProject || !fromEnvUrl ? FALLBACK_SUPABASE_URL : fromEnvUrl;
   const SUPABASE_SERVICE_ROLE_KEY = process.env['SUPABASE_SERVICE_ROLE_KEY'];
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -51,7 +57,7 @@ function createSupabaseAdminClient() {
       storage: undefined,
       persistSession: false,
       autoRefreshToken: false,
-    }
+    },
   });
 }
 
