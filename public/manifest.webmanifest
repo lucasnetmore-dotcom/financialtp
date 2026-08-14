@@ -1,6 +1,6 @@
 {
-  "name": "FINANCEIRO TP",
-  "short_name": "FINANCEIRO TP",
+  "name": "Finance Flow AI",
+  "short_name": "Finance Flow",
   "description": "Gestão financeira sincronizada entre computador e iPhone.",
   "start_url": "/painel",
   "scope": "/",
