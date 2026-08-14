@@ -26,12 +26,23 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
+// Projeto com schema completo (entries, profiles, settings + RLS + Realtime).
+// Override explícito: o deploy no Vercel estava a usar outro projeto sem tabelas.
+const FALLBACK_SUPABASE_URL = 'https://hokwwlajifoxqkeldlsv.supabase.co';
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_A-L-Id2snj-slXEdWL-ouQ_877fZw5-';
 
 function createSupabaseClient() {
-  // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env['VITE_SUPABASE_URL'] || process.env['SUPABASE_URL'];
-  const SUPABASE_PUBLISHABLE_KEY = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] || process.env['SUPABASE_PUBLISHABLE_KEY'];
+  // Prefer env, but never use a known-empty project that breaks production.
+  const fromEnvUrl = import.meta.env['VITE_SUPABASE_URL'] || process.env['SUPABASE_URL'];
+  const fromEnvKey =
+    import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] || process.env['SUPABASE_PUBLISHABLE_KEY'];
+
+  const isBrokenProject =
+    typeof fromEnvUrl === 'string' && fromEnvUrl.includes('yxaokofkcgfocqooniec');
+
+  const SUPABASE_URL = isBrokenProject || !fromEnvUrl ? FALLBACK_SUPABASE_URL : fromEnvUrl;
+  const SUPABASE_PUBLISHABLE_KEY =
+    isBrokenProject || !fromEnvKey ? FALLBACK_SUPABASE_PUBLISHABLE_KEY : fromEnvKey;
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
@@ -51,7 +62,7 @@ function createSupabaseClient() {
       storage: typeof window !== 'undefined' ? localStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
-    }
+    },
   });
 }
 
@@ -65,4 +76,3 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     return Reflect.get(_supabase, prop, receiver);
   },
 });
-
