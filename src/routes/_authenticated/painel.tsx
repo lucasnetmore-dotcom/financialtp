@@ -48,6 +48,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { AiInsights } from "@/components/AiInsights";
 import { BrandName } from "@/components/BrandName";
 import { EntryDialog } from "@/components/EntryDialog";
 import { NotificationSettings } from "@/components/NotificationSettings";
@@ -92,7 +93,7 @@ export const Route = createFileRoute("/_authenticated/painel")({
       {
         name: "description",
         content:
-          "Visão geral, lançamentos, relatórios e definições sincronizados em tempo real entre os seus dispositivos.",
+          "Visão geral, lançamentos, insights de IA e definições sincronizados em tempo real.",
       },
       { property: "og:title", content: "Painel | Finance Flow AI" },
       {
@@ -358,6 +359,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                   <Metric label="Total de saídas" value={money(t.expense)} hint={`${entries.filter((e) => e.type === "expense").length} lançamentos`} tone="danger" icon={ArrowDownRight} index={2} />
                   <Metric label="Lucro líquido" value={money(t.balance)} hint={`Hoje: ${money(today.balance)}`} tone={t.balance >= 0 ? "success" : "danger"} icon={TrendingUp} index={3} />
                 </div>
+                <AiInsights entries={entries} settings={settingsQuery.data ?? null} />
                 <div className="grid gap-4 lg:grid-cols-[1.45fr_0.85fr]">
                   <div className="panel panel-crown p-5 lg:p-6 animate-fade-up">
                     <div className="flex items-baseline justify-between gap-3">
