@@ -12,12 +12,12 @@ export const Route = createFileRoute("/redefinir-senha")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Redefinir palavra-passe | FINANCEIRO TP" },
+      { title: "Redefinir palavra-passe | Finance Flow AI" },
       {
         name: "description",
-        content: "Defina uma nova palavra-passe para a sua conta FINANCEIRO TP.",
+        content: "Defina uma nova palavra-passe para a sua conta Finance Flow AI.",
       },
-      { property: "og:title", content: "Redefinir palavra-passe | FINANCEIRO TP" },
+      { property: "og:title", content: "Redefinir palavra-passe | Finance Flow AI" },
       {
         property: "og:description",
         content: "Escolha uma nova palavra-passe segura para a sua conta.",
@@ -69,7 +69,7 @@ function ResetPasswordPage() {
         <ThemeToggle />
       </div>
       <div className="panel panel-crown w-full max-w-md p-8 animate-fade-up">
-        <p className="eyebrow">FINANCEIRO TP</p>
+        <p className="eyebrow">Finance Flow AI</p>
         <h1 className="mt-2 font-display text-2xl font-bold tracking-tight">
           Nova palavra-passe
         </h1>
