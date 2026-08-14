@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { lovable } from "@/integrations/lovable";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/auth")({
@@ -31,6 +32,23 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+function friendlyOAuthError(raw: string, provider: "google" | "apple"): string {
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("missing oauth secret") ||
+    lower.includes("unsupported provider") ||
+    lower.includes("provider is not enabled")
+  ) {
+    return provider === "google"
+      ? "O login com Google ainda não está ativado no servidor. Use e-mail e palavra-passe, ou ative o Google no painel Supabase (Authentication → Providers)."
+      : "O login com Apple ainda não está ativado no servidor. Use e-mail e palavra-passe, ou ative a Apple no painel Supabase (Authentication → Providers).";
+  }
+  if (lower.includes("redirect") || lower.includes("redirect_uri")) {
+    return "URL de redirecionamento não autorizada. Adicione https://financialtp.vercel.app/** nas Redirect URLs do Supabase.";
+  }
+  return raw || "Não foi possível continuar com o login social.";
+}
+
 function AuthPage() {
   const { modo } = Route.useSearch();
   const navigate = useNavigate();
@@ -44,24 +62,45 @@ function AuthPage() {
     setOauthLoading(provider);
     try {
       const redirectTo = `${window.location.origin}/painel`;
+
+      // 1) Tenta Supabase nativo (projeto com tabelas reais)
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo,
-          skipBrowserRedirect: false,
+          skipBrowserRedirect: true,
         },
       });
-      if (error) {
-        toast.error(error.message || "Não foi possível continuar com o login social.");
-        return;
-      }
-      // Browser will redirect to the provider; if we somehow get a URL back without redirect, open it.
-      if (data?.url) {
+
+      if (!error && data?.url) {
         window.location.assign(data.url);
         return;
       }
+
+      // 2) Fallback: Lovable Cloud Auth (muitas vezes já tem Google/Apple configurados)
+      const lovableResult = await lovable.auth.signInWithOAuth(provider, {
+        redirect_uri: redirectTo,
+      });
+
+      if (lovableResult.redirected) {
+        return;
+      }
+
+      if (lovableResult.error) {
+        const msg =
+          lovableResult.error instanceof Error
+            ? lovableResult.error.message
+            : String(lovableResult.error);
+        toast.error(friendlyOAuthError(error?.message || msg, provider));
+        return;
+      }
+
+      // Sessão já definida pelo Lovable → ir para o painel
+      void navigate({ to: "/painel", replace: true });
     } catch (error) {
-      toast.error((error as Error).message ?? "Não foi possível continuar.");
+      toast.error(
+        friendlyOAuthError((error as Error).message ?? "Não foi possível continuar.", provider),
+      );
     } finally {
       setOauthLoading(null);
     }
@@ -80,6 +119,14 @@ function AuthPage() {
   }
 
   useEffect(() => {
+    // Mensagens de erro vindas do redirect OAuth (?error=...)
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error_description") || params.get("error");
+    if (err) {
+      toast.error(friendlyOAuthError(decodeURIComponent(err), "google"));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) void navigate({ to: "/painel", replace: true });
     });
