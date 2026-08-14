@@ -8,13 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FINANCEIRO TP — gestão financeira sincronizada" },
+      { title: "Finance Flow AI — gestão financeira sincronizada" },
       {
         name: "description",
         content:
           "Controle entradas, saídas, metas e relatórios do seu negócio com sincronização automática entre PC e iPhone.",
       },
-      { property: "og:title", content: "FINANCEIRO TP — gestão financeira sincronizada" },
+      { property: "og:title", content: "Finance Flow AI — gestão financeira sincronizada" },
       {
         property: "og:description",
         content: "Um só login, os mesmos dados em todos os dispositivos, em tempo real.",
@@ -43,9 +43,9 @@ function Landing() {
         <ThemeToggle />
       </div>
       <div className="w-full max-w-xl text-center animate-fade-up">
-        <p className="eyebrow">Gestão financeira</p>
+        <p className="eyebrow">Gestão financeira inteligente</p>
         <h1 className="mt-3 font-display text-5xl font-bold tracking-tight">
-          FINANCEI<span className="gold-text">RO TP</span>
+          Finance <span className="gold-text">Flow AI</span>
         </h1>
         <p className="mt-5 text-base text-muted-foreground">
           Os seus lançamentos ficam guardados na nuvem e aparecem ao mesmo tempo no computador
