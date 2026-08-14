@@ -14,13 +14,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/planos")({
   head: () => ({
     meta: [
-      { title: "Planos | FINANCEIRO TP" },
+      { title: "Planos | Finance Flow AI" },
       {
         name: "description",
         content:
-          "Compare os planos Free, Pro e Business do FINANCEIRO TP e escolha o limite de lançamentos certo para o seu negócio.",
+          "Compare os planos Free, Pro e Business do Finance Flow AI e escolha o limite de lançamentos certo para o seu negócio.",
       },
-      { property: "og:title", content: "Planos | FINANCEIRO TP" },
+      { property: "og:title", content: "Planos | Finance Flow AI" },
       {
         property: "og:description",
         content: "Free, Pro e Business — lançamentos ilimitados e relatórios avançados.",
@@ -41,7 +41,6 @@ function PlanosPage() {
   const queryClient = useQueryClient();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
-  // Regresso do Stripe Checkout
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const result = params.get("checkout");
@@ -77,8 +76,6 @@ function PlanosPage() {
       );
     }
   }
-
-
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-5 py-9 lg:px-10">
