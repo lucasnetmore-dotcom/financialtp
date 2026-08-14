@@ -1,7 +1,8 @@
 /**
- * Notificações inteligentes — tudo calculado no dispositivo, a partir dos
- * lançamentos reais do utilizador. Nada é inventado.
+ * Notificações inteligentes — calculadas no dispositivo a partir dos
+ * lançamentos reais do utilizador + dicas de IA financeira.
  */
+import { buildFinanceInsights } from "@/lib/ai-insights";
 import { monthISO, todayISO, totals, type Entry, type Settings } from "@/lib/finance";
 
 export type AlertLevel = "info" | "success" | "warning" | "danger";
@@ -11,7 +12,6 @@ export interface SmartAlert {
   level: AlertLevel;
   title: string;
   body: string;
-  /** chave de preferência que liga/desliga este tipo de alerta */
   kind: AlertKind;
 }
 
@@ -21,7 +21,8 @@ export type AlertKind =
   | "negativeBalance"
   | "categorySpike"
   | "inactivity"
-  | "weeklySummary";
+  | "weeklySummary"
+  | "aiTip";
 
 export interface NotificationPrefs {
   enabled: boolean;
@@ -32,9 +33,8 @@ export interface NotificationPrefs {
   categorySpike: boolean;
   inactivity: boolean;
   weeklySummary: boolean;
-  /** multiplicador da média diária a partir do qual um gasto é "elevado" */
+  aiTip: boolean;
   highSpendFactor: number;
-  /** dias sem lançamentos até avisar */
   inactivityDays: number;
 }
 
@@ -47,6 +47,7 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   categorySpike: true,
   inactivity: true,
   weeklySummary: true,
+  aiTip: true,
   highSpendFactor: 2,
   inactivityDays: 3,
 };
@@ -103,13 +104,12 @@ function addDays(iso: string, days: number) {
 const fmt = (n: number, currency: string) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency }).format(n || 0);
 
-/** Gera os alertas relevantes a partir dos dados reais. */
 export function buildAlerts(
   entries: Entry[],
   settings: Settings | null,
   prefs: NotificationPrefs = DEFAULT_PREFS,
 ): SmartAlert[] {
-  if (!prefs.enabled || entries.length === 0) return [];
+  if (!prefs.enabled) return [];
 
   const currency = settings?.currency ?? "EUR";
   const alerts: SmartAlert[] = [];
@@ -119,10 +119,22 @@ export function buildAlerts(
   const day = now.getDate();
   const totalDays = daysInMonth(now);
 
+  if (entries.length === 0) {
+    if (prefs.aiTip) {
+      alerts.push({
+        id: `ai-welcome-${today}`,
+        kind: "aiTip",
+        level: "info",
+        title: "Dica Finance Flow AI",
+        body: "Registe o primeiro lançamento para a IA começar a analisar margem, meta e categorias.",
+      });
+    }
+    return alerts;
+  }
+
   const monthEntries = entries.filter((e) => e.entry_date.slice(0, 7) === month);
   const monthTotals = totals(monthEntries);
 
-  // 1. Meta mensal
   const goal = Number(settings?.monthly_goal ?? 0);
   if (prefs.goal && goal > 0) {
     const pct = (monthTotals.income / goal) * 100;
@@ -131,7 +143,7 @@ export function buildAlerts(
         id: `goal-hit-${month}`,
         kind: "goal",
         level: "success",
-        title: "Meta mensal atingida 🎉",
+        title: "Meta mensal atingida",
         body: `Já entrou ${fmt(monthTotals.income, currency)} este mês — ${Math.round(pct)}% da meta de ${fmt(goal, currency)}.`,
       });
     } else if (day / totalDays > 0.6 && pct < (day / totalDays) * 100 - 15) {
@@ -145,7 +157,6 @@ export function buildAlerts(
     }
   }
 
-  // 2. Saldo negativo do mês
   if (prefs.negativeBalance && monthTotals.balance < 0) {
     alerts.push({
       id: `negative-${month}`,
@@ -156,7 +167,6 @@ export function buildAlerts(
     });
   }
 
-  // 3. Gasto elevado hoje (vs. média diária dos últimos 30 dias)
   if (prefs.highSpend) {
     const from = addDays(today, -30);
     const window30 = entries.filter(
@@ -175,7 +185,6 @@ export function buildAlerts(
     }
   }
 
-  // 4. Categoria a disparar (mês atual vs. média dos 3 meses anteriores)
   if (prefs.categorySpike) {
     const byCat = new Map<string, number>();
     for (const e of monthEntries) {
@@ -205,14 +214,13 @@ export function buildAlerts(
           id: `spike-${cat}-${month}`,
           kind: "categorySpike",
           level: "warning",
-          title: `"${cat}" acima do habitual`,
+          title: `\"${cat}\" acima do habitual`,
           body: `${fmt(value, currency)} este mês, contra uma média de ${fmt(avg, currency)} nos meses anteriores.`,
         });
       }
     }
   }
 
-  // 5. Inatividade
   if (prefs.inactivity) {
     const last = entries.reduce((max, e) => (e.entry_date > max ? e.entry_date : max), "");
     if (last) {
@@ -231,7 +239,6 @@ export function buildAlerts(
     }
   }
 
-  // 6. Resumo semanal (à segunda-feira)
   if (prefs.weeklySummary && now.getDay() === 1) {
     const from = addDays(today, -7);
     const week = totals(entries.filter((e) => e.entry_date >= from && e.entry_date < today));
@@ -242,6 +249,28 @@ export function buildAlerts(
         level: "info",
         title: "Resumo da semana passada",
         body: `Entradas ${fmt(week.income, currency)} · Saídas ${fmt(week.expense, currency)} · Saldo ${fmt(week.balance, currency)}.`,
+      });
+    }
+  }
+
+  // Dicas de IA (1–2 prioritárias) como notificações
+  if (prefs.aiTip) {
+    const insights = buildFinanceInsights(entries, settings);
+    for (const tip of insights.slice(0, 2)) {
+      const level: AlertLevel =
+        tip.tone === "critical"
+          ? "danger"
+          : tip.tone === "caution"
+            ? "warning"
+            : tip.tone === "positive"
+              ? "success"
+              : "info";
+      alerts.push({
+        id: `ai-${tip.id}`,
+        kind: "aiTip",
+        level,
+        title: `IA: ${tip.title}`,
+        body: tip.tip ? `${tip.body} ${tip.tip}` : tip.body,
       });
     }
   }
@@ -257,7 +286,6 @@ export async function requestPushPermission(): Promise<boolean> {
   return result === "granted";
 }
 
-/** Envia notificação do sistema apenas uma vez por alerta. */
 export function pushNewAlerts(alerts: SmartAlert[]) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
@@ -265,9 +293,9 @@ export function pushNewAlerts(alerts: SmartAlert[]) {
   const fresh = alerts.filter((a) => !pushed.includes(a.id));
   for (const alert of fresh.slice(0, 3)) {
     try {
-      new Notification(alert.title, { body: alert.body, icon: "/apple-touch-icon.png" });
+      new Notification(alert.title, { body: alert.body, icon: "/app-icon-512.png" });
     } catch {
-      /* ignora falhas do browser */
+      /* ignora */
     }
   }
   if (fresh.length) {
