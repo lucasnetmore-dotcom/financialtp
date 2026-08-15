@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { createCheckoutSession } from "@/lib/billing.functions";
 import { useAuthUser, useEntries, useProfile } from "@/lib/data";
 import { getPlanAccess, PLANS } from "@/lib/plans";
@@ -65,15 +66,24 @@ function PlanosPage() {
   async function handleUpgrade(plan: "pro" | "business") {
     setLoadingPlan(plan);
     try {
+      // Garante access_token fresco no header Authorization do serverFn
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshed.session?.access_token) {
+        const { data: existing } = await supabase.auth.getSession();
+        if (!existing.session?.access_token) {
+          throw new Error("Sessão expirada. Faça login novamente e tente outra vez.");
+        }
+      }
+
       const { url } = await startCheckout({
         data: { plan, origin: window.location.origin },
       });
       window.location.href = url;
     } catch (error) {
       setLoadingPlan(null);
-      toast.error(
-        error instanceof Error ? error.message : "Não foi possível abrir o pagamento.",
-      );
+      const message =
+        error instanceof Error ? error.message : "Não foi possível abrir o pagamento.";
+      toast.error(message);
     }
   }
 
