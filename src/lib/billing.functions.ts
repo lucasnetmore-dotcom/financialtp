@@ -4,6 +4,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type PaidPlan = "pro" | "business";
 
+/**
+ * Checkout Stripe sem service role.
+ * Lê/atualiza o perfil com o cliente autenticado (RLS do próprio utilizador).
+ * A ativação do plano continua a ser feita pelo webhook (aí sim com admin).
+ */
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { plan: PaidPlan; origin: string }) => {
@@ -24,7 +29,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     if (!secretKey || !priceId) {
       throw new Error(
-        "Pagamentos não configurados. Falta STRIPE_SECRET_KEY ou o Price ID do plano.",
+        "Pagamentos não configurados. Falta STRIPE_SECRET_KEY ou o Price ID do plano no Vercel.",
       );
     }
 
@@ -33,20 +38,26 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       httpClient: Stripe.createFetchHttpClient(),
     });
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const userId = context.userId;
+    const supabase = context.supabase;
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("plan, stripe_customer_id")
       .eq("id", userId)
       .maybeSingle();
+
+    if (profileError) {
+      console.error("[billing] profile read", profileError.message);
+      throw new Error("Não foi possível ler o seu perfil. Tente novamente.");
+    }
 
     if (profile?.plan === data.plan) {
       throw new Error("Já tem este plano ativo.");
     }
 
     let customerId = profile?.stripe_customer_id ?? null;
+
     if (!customerId) {
       const email = (context.claims as { email?: string } | undefined)?.email;
       const customer = await stripe.customers.create({
@@ -54,10 +65,16 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         metadata: { user_id: userId },
       });
       customerId = customer.id;
-      await supabaseAdmin
+
+      const { error: updateError } = await supabase
         .from("profiles")
         .update({ stripe_customer_id: customerId })
         .eq("id", userId);
+
+      // Se o RLS bloquear a escrita, o webhook ainda associa pelo metadata/user_id
+      if (updateError) {
+        console.warn("[billing] não gravou stripe_customer_id no perfil", updateError.message);
+      }
     }
 
     const session = await stripe.checkout.sessions.create({
