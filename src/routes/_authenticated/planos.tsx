@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useEffectivePlan } from "@/hooks/use-effective-plan";
 import { supabase } from "@/integrations/supabase/client";
 import {
   confirmCheckoutSession,
@@ -13,7 +14,8 @@ import {
   syncSubscriptionFromStripe,
 } from "@/lib/billing.functions";
 import { useAuthUser, useEntries, useProfile } from "@/lib/data";
-import { getPlanAccess, PLANS } from "@/lib/plans";
+import { writeCachedPlan } from "@/lib/plan-cache";
+import { getPlanAccess, PLANS, type PlanId } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/planos")({
@@ -41,7 +43,12 @@ function PlanosPage() {
   const { userId } = useAuthUser();
   const entriesQuery = useEntries(userId);
   const profileQuery = useProfile(userId);
-  const access = getPlanAccess(profileQuery.data, entriesQuery.data ?? []);
+  const { plan: effectivePlan, setPlanLocal, refresh: refreshEffective } = useEffectivePlan(userId);
+  const access = getPlanAccess(
+    profileQuery.data,
+    entriesQuery.data ?? [],
+    effectivePlan,
+  );
   const startCheckout = useServerFn(createCheckoutSession);
   const confirmCheckout = useServerFn(confirmCheckoutSession);
   const syncSub = useServerFn(syncSubscriptionFromStripe);
@@ -52,9 +59,10 @@ function PlanosPage() {
   const handledCheckout = useRef(false);
   const didAutoSync = useRef(false);
 
-  async function refreshProfile() {
-    await queryClient.invalidateQueries({ queryKey: ["profile"] });
-    await profileQuery.refetch();
+  function applyPlanLocal(plan: PlanId) {
+    if (!userId) return;
+    writeCachedPlan(userId, plan);
+    setPlanLocal(plan);
   }
 
   async function runSync(opts?: { silent?: boolean }) {
@@ -62,20 +70,20 @@ function PlanosPage() {
     try {
       await supabase.auth.refreshSession();
       const result = await syncSub();
-      await refreshProfile();
+      applyPlanLocal(result.plan as PlanId);
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+
       if (!opts?.silent) {
         if (result.plan === "business" || result.plan === "pro") {
           toast.success(
-            result.already
-              ? `Plano ${result.plan === "business" ? "Business" : "Pro"} já estava ativo.`
-              : `Plano ${result.plan === "business" ? "Business" : "Pro"} sincronizado!`,
+            `Plano ${result.plan === "business" ? "Business" : "Pro"} ativo!`,
           );
         } else if (result.synced) {
           toast.info("Sem subscrição ativa na Stripe — plano Free.");
         } else {
           toast.message("Não encontrámos pagamento associado a esta conta na Stripe.");
         }
-      } else if (result.synced && !result.already && result.plan !== "free") {
+      } else if (result.synced && result.plan !== "free") {
         toast.success(`Plano ${result.plan === "business" ? "Business" : "Pro"} ativado!`);
       }
       return result;
@@ -89,19 +97,14 @@ function PlanosPage() {
     }
   }
 
-  // Ao abrir a página: tenta sincronizar se ainda está free (recupera pagamentos já feitos)
   useEffect(() => {
     if (!userId || didAutoSync.current) return;
-    if (profileQuery.isLoading) return;
     didAutoSync.current = true;
-    const current = profileQuery.data?.plan ?? "free";
-    if (current === "free") {
-      void runSync({ silent: true }).catch(() => {
-        /* silencioso */
-      });
-    }
+    void runSync({ silent: true }).catch(() => {
+      void refreshEffective();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, profileQuery.isLoading, profileQuery.data?.plan]);
+  }, [userId]);
 
   useEffect(() => {
     if (handledCheckout.current) return;
@@ -127,19 +130,21 @@ function PlanosPage() {
 
         if (sessionId?.startsWith("cs_")) {
           const { plan } = await confirmCheckout({ data: { sessionId } });
-          await refreshProfile();
+          applyPlanLocal(plan as PlanId);
           toast.success(`Plano ${plan === "business" ? "Business" : "Pro"} ativado!`, {
             id: "activate-plan",
           });
         } else {
-          await runSync({ silent: true });
+          const r = await runSync({ silent: true });
+          applyPlanLocal(r.plan as PlanId);
           toast.success("Pagamento recebido. Plano sincronizado.", { id: "activate-plan" });
         }
-      } catch (error) {
+      } catch {
         try {
-          await runSync({ silent: true });
+          const r = await runSync({ silent: true });
+          applyPlanLocal(r.plan as PlanId);
           toast.success("Plano sincronizado a partir da Stripe.", { id: "activate-plan" });
-        } catch {
+        } catch (error) {
           toast.error(
             error instanceof Error ? error.message : "Não foi possível ativar o plano.",
             { id: "activate-plan" },
