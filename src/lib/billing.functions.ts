@@ -25,7 +25,6 @@ function planFromPrice(priceId: string | null | undefined): PlanId | null {
 
 type SupabaseLike = { from: (table: string) => any };
 
-/** Tenta gravar na BD; nunca falha o fluxo se o RLS bloquear — o plano vem da Stripe. */
 async function tryPersistPlan(
   userClient: SupabaseLike,
   userId: string,
@@ -113,7 +112,7 @@ async function findCustomerId(
     });
     if (byMeta.data[0]?.id) return byMeta.data[0].id;
   } catch {
-    /* search pode não estar disponível em todas as contas */
+    /* search pode não estar disponível */
   }
 
   if (email) {
@@ -226,6 +225,46 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     return { url: session.url };
   });
 
+/** Portal do cliente Stripe — fatura, cartão, cancelar. */
+export const createBillingPortalSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { origin: string }) => {
+    if (typeof input?.origin !== "string" || !/^https?:\/\//.test(input.origin)) {
+      throw new Error("Origem inválida.");
+    }
+    return { origin: input.origin };
+  })
+  .handler(async ({ data, context }) => {
+    const stripe = await getStripe();
+    const userId = context.userId;
+    const email = (context.claims as { email?: string } | undefined)?.email;
+
+    const { data: profile } = await context.supabase
+      .from("profiles")
+      .select("stripe_customer_id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const customerId = await findCustomerId(
+      stripe,
+      userId,
+      email,
+      profile?.stripe_customer_id,
+    );
+
+    if (!customerId) {
+      throw new Error("Ainda não tem uma subscrição associada. Faça upgrade primeiro.");
+    }
+
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${data.origin}/planos`,
+    });
+
+    if (!portal.url) throw new Error("Não foi possível abrir a gestão da subscrição.");
+    return { url: portal.url };
+  });
+
 export const confirmCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { sessionId: string }) => {
@@ -302,13 +341,9 @@ export const confirmCheckoutSession = createServerFn({ method: "POST" })
       ...(customerId ? { stripe_customer_id: customerId } : {}),
     });
 
-    // Sucesso mesmo com RLS — a app usa este plan + cache local
     return { plan, planStatus, persisted };
   });
 
-/**
- * Fonte de verdade: Stripe. Grava na BD se possível; devolve sempre o plano real.
- */
 export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -355,7 +390,6 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
     };
   });
 
-/** Só leitura Stripe — para o painel saber o plano sem depender da BD. */
 export const getEffectivePlan = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -381,7 +415,6 @@ export const getEffectivePlan = createServerFn({ method: "GET" })
     }
 
     const resolved = await resolvePlanFromStripeCustomer(stripe, customerId);
-    // tenta gravar em background logic (não bloqueia)
     void tryPersistPlan(context.supabase, userId, {
       plan: resolved.plan,
       plan_status: resolved.planStatus,
