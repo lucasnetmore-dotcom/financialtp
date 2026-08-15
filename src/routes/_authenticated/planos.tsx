@@ -2,12 +2,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { createCheckoutSession } from "@/lib/billing.functions";
+import { confirmCheckoutSession, createCheckoutSession } from "@/lib/billing.functions";
 import { useAuthUser, useEntries, useProfile } from "@/lib/data";
 import { getPlanAccess, PLANS } from "@/lib/plans";
 import { cn } from "@/lib/utils";
@@ -39,34 +39,67 @@ function PlanosPage() {
   const profileQuery = useProfile(userId);
   const access = getPlanAccess(profileQuery.data, entriesQuery.data ?? []);
   const startCheckout = useServerFn(createCheckoutSession);
+  const confirmCheckout = useServerFn(confirmCheckoutSession);
   const queryClient = useQueryClient();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false);
+  const handledCheckout = useRef(false);
 
   useEffect(() => {
+    if (handledCheckout.current) return;
     const params = new URLSearchParams(window.location.search);
     const result = params.get("checkout");
     if (!result) return;
+    handledCheckout.current = true;
+
+    const sessionId = params.get("session_id");
     window.history.replaceState({}, "", window.location.pathname);
 
     if (result === "cancel") {
       toast.info("Pagamento cancelado.");
       return;
     }
-    toast.success("Pagamento confirmado! A ativar o seu plano…");
 
-    let tries = 0;
-    const timer = window.setInterval(() => {
-      tries += 1;
-      void queryClient.invalidateQueries({ queryKey: ["profile"] });
-      if (tries >= 6) window.clearInterval(timer);
-    }, 2500);
-    return () => window.clearInterval(timer);
-  }, [queryClient]);
+    if (result !== "success") return;
+
+    void (async () => {
+      setActivating(true);
+      toast.loading("A ativar o seu plano…", { id: "activate-plan" });
+
+      try {
+        await supabase.auth.refreshSession();
+
+        if (sessionId?.startsWith("cs_")) {
+          const { plan } = await confirmCheckout({ data: { sessionId } });
+          await queryClient.invalidateQueries({ queryKey: ["profile"] });
+          toast.success(`Plano ${plan === "business" ? "Business" : "Pro"} ativado!`, {
+            id: "activate-plan",
+          });
+        } else {
+          // Sem session_id (URL antiga): só refresca o perfil (webhook pode ter atualizado)
+          let tries = 0;
+          const timer = window.setInterval(() => {
+            tries += 1;
+            void queryClient.invalidateQueries({ queryKey: ["profile"] });
+            if (tries >= 8) window.clearInterval(timer);
+          }, 2000);
+          toast.success("Pagamento recebido. A sincronizar o plano…", { id: "activate-plan" });
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Não foi possível ativar o plano.";
+        toast.error(message, { id: "activate-plan" });
+        // Ainda assim tenta refrescar por se o webhook tiver funcionado
+        void queryClient.invalidateQueries({ queryKey: ["profile"] });
+      } finally {
+        setActivating(false);
+      }
+    })();
+  }, [confirmCheckout, queryClient]);
 
   async function handleUpgrade(plan: "pro" | "business") {
     setLoadingPlan(plan);
     try {
-      // Garante access_token fresco no header Authorization do serverFn
       const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError || !refreshed.session?.access_token) {
         const { data: existing } = await supabase.auth.getSession();
@@ -103,10 +136,19 @@ function PlanosPage() {
           Escolha o seu <span className="gold-text">plano</span>
         </h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Está no plano <strong>{access.planName}</strong>
-          {access.limit !== null
-            ? ` — ${access.usedThisMonth} de ${access.limit} lançamentos usados este mês.`
-            : " — lançamentos ilimitados."}
+          {activating ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="size-3.5 animate-spin" />
+              A ativar o plano após o pagamento…
+            </span>
+          ) : (
+            <>
+              Está no plano <strong>{access.planName}</strong>
+              {access.limit !== null
+                ? ` — ${access.usedThisMonth} de ${access.limit} lançamentos usados este mês.`
+                : " — lançamentos ilimitados."}
+            </>
+          )}
         </p>
       </header>
 
@@ -165,7 +207,7 @@ function PlanosPage() {
                 ) : (
                   <Button
                     className="w-full"
-                    disabled={loadingPlan !== null}
+                    disabled={loadingPlan !== null || activating}
                     onClick={() => void handleUpgrade(plan.id as "pro" | "business")}
                   >
                     {loadingPlan === plan.id ? (
