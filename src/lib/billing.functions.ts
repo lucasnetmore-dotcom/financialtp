@@ -23,15 +23,10 @@ function planFromPrice(priceId: string | null | undefined): PlanId | null {
   return null;
 }
 
-type SupabaseLike = {
-  from: (table: string) => any;
-};
+type SupabaseLike = { from: (table: string) => any };
 
-/**
- * Grava o plano no perfil.
- * Usa upsert (não só update) — update com 0 linhas não dava erro e o plano ficava free.
- */
-async function applyPlanToProfile(
+/** Tenta gravar na BD; nunca falha o fluxo se o RLS bloquear — o plano vem da Stripe. */
+async function tryPersistPlan(
   userClient: SupabaseLike,
   userId: string,
   patch: {
@@ -40,15 +35,7 @@ async function applyPlanToProfile(
     stripe_subscription_id: string | null;
     stripe_customer_id?: string;
   },
-) {
-  const row = {
-    id: userId,
-    ...patch,
-    // campos mínimos se o perfil ainda não existir
-    company_name: "O meu negócio",
-  };
-
-  // 1) Service role (se existir no Vercel)
+): Promise<{ persisted: boolean }> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
@@ -59,82 +46,92 @@ async function applyPlanToProfile(
           plan: patch.plan,
           plan_status: patch.plan_status,
           stripe_subscription_id: patch.stripe_subscription_id,
-          ...(patch.stripe_customer_id
-            ? { stripe_customer_id: patch.stripe_customer_id }
-            : {}),
+          ...(patch.stripe_customer_id ? { stripe_customer_id: patch.stripe_customer_id } : {}),
         },
         { onConflict: "id" },
       )
       .select("id, plan")
       .maybeSingle();
-
-    if (!error && data?.plan === patch.plan) {
-      return { ok: true as const, via: "admin" as const, plan: data.plan as PlanId };
-    }
-    if (error) console.warn("[billing] admin upsert", error.message);
-  } catch (e) {
-    console.warn("[billing] admin indisponível", e instanceof Error ? e.message : e);
+    if (!error && data?.plan === patch.plan) return { persisted: true };
+  } catch {
+    /* sem service role */
   }
 
-  // 2) Cliente autenticado — primeiro tenta update + select
-  const { data: updated, error: updateError } = await userClient
-    .from("profiles")
-    .update({
-      plan: patch.plan,
-      plan_status: patch.plan_status,
-      stripe_subscription_id: patch.stripe_subscription_id,
-      ...(patch.stripe_customer_id ? { stripe_customer_id: patch.stripe_customer_id } : {}),
-    })
-    .eq("id", userId)
-    .select("id, plan")
-    .maybeSingle();
-
-  if (!updateError && updated?.plan === patch.plan) {
-    return { ok: true as const, via: "user-update" as const, plan: updated.plan as PlanId };
-  }
-
-  // 3) Upsert completo (perfil em falta ou update bloqueado parcialmente)
-  const { data: upserted, error: upsertError } = await userClient
-    .from("profiles")
-    .upsert(
-      {
-        id: userId,
-        company_name: row.company_name,
+  try {
+    const { data } = await userClient
+      .from("profiles")
+      .update({
         plan: patch.plan,
         plan_status: patch.plan_status,
         stripe_subscription_id: patch.stripe_subscription_id,
         ...(patch.stripe_customer_id ? { stripe_customer_id: patch.stripe_customer_id } : {}),
-      },
-      { onConflict: "id" },
-    )
-    .select("id, plan")
-    .maybeSingle();
-
-  if (upsertError) {
-    throw new Error(
-      `Pagamento ok, mas o perfil não gravou o plano (${upsertError.message}). ` +
-        "Adicione SUPABASE_SERVICE_ROLE_KEY no Vercel ou permita UPDATE em profiles no RLS.",
-    );
+      })
+      .eq("id", userId)
+      .select("id, plan")
+      .maybeSingle();
+    if (data?.plan === patch.plan) return { persisted: true };
+  } catch {
+    /* ignore */
   }
 
-  if (!upserted || upserted.plan !== patch.plan) {
-    throw new Error(
-      "O pagamento foi aceite, mas a base de dados recusou gravar o plano (RLS). " +
-        "Adicione SUPABASE_SERVICE_ROLE_KEY no Vercel (Supabase → Settings → API → service_role).",
-    );
+  try {
+    const { data } = await userClient
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          company_name: "O meu negócio",
+          plan: patch.plan,
+          plan_status: patch.plan_status,
+          stripe_subscription_id: patch.stripe_subscription_id,
+          ...(patch.stripe_customer_id ? { stripe_customer_id: patch.stripe_customer_id } : {}),
+        },
+        { onConflict: "id" },
+      )
+      .select("id, plan")
+      .maybeSingle();
+    if (data?.plan === patch.plan) return { persisted: true };
+  } catch {
+    /* ignore */
   }
 
-  return { ok: true as const, via: "user-upsert" as const, plan: upserted.plan as PlanId };
+  return { persisted: false };
+}
+
+async function findCustomerId(
+  stripe: Awaited<ReturnType<typeof getStripe>>,
+  userId: string,
+  email: string | undefined,
+  profileCustomerId: string | null | undefined,
+): Promise<string | null> {
+  if (profileCustomerId) return profileCustomerId;
+
+  try {
+    const byMeta = await stripe.customers.search({
+      query: `metadata["user_id"]:"${userId}"`,
+      limit: 1,
+    });
+    if (byMeta.data[0]?.id) return byMeta.data[0].id;
+  } catch {
+    /* search pode não estar disponível em todas as contas */
+  }
+
+  if (email) {
+    const list = await stripe.customers.list({ email, limit: 5 });
+    if (list.data[0]?.id) return list.data[0].id;
+  }
+
+  return null;
 }
 
 async function resolvePlanFromStripeCustomer(
   stripe: Awaited<ReturnType<typeof getStripe>>,
   customerId: string,
-): Promise<{ plan: PlanId; planStatus: string; subscriptionId: string | null } | null> {
+): Promise<{ plan: PlanId; planStatus: string; subscriptionId: string | null }> {
   const subs = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
-    limit: 10,
+    limit: 15,
   });
 
   const active = subs.data.find((s) =>
@@ -148,17 +145,10 @@ async function resolvePlanFromStripeCustomer(
   const priceId = active.items.data[0]?.price?.id;
   const fromPrice = planFromPrice(priceId);
   const fromMeta = active.metadata?.["plan"] as PlanId | undefined;
-  const plan = fromPrice ?? (fromMeta === "pro" || fromMeta === "business" ? fromMeta : null);
-
-  if (!plan) {
-    // Se há subscrição ativa mas o price id não bate com env, assume pro por segurança mínima
-    console.warn("[billing] price não mapeado", priceId);
-    return {
-      plan: "pro",
-      planStatus: active.status,
-      subscriptionId: active.id,
-    };
-  }
+  const plan =
+    fromPrice ??
+    (fromMeta === "pro" || fromMeta === "business" ? fromMeta : null) ??
+    "pro";
 
   return {
     plan,
@@ -191,37 +181,33 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const stripe = await getStripe();
     const userId = context.userId;
     const supabase = context.supabase;
+    const email = (context.claims as { email?: string } | undefined)?.email;
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile } = await supabase
       .from("profiles")
       .select("plan, stripe_customer_id")
       .eq("id", userId)
       .maybeSingle();
 
-    if (profileError) {
-      throw new Error("Não foi possível ler o seu perfil. Tente novamente.");
-    }
-
-    if (profile?.plan === data.plan) {
-      throw new Error("Já tem este plano ativo.");
-    }
-
-    let customerId = profile?.stripe_customer_id ?? null;
+    let customerId = await findCustomerId(
+      stripe,
+      userId,
+      email,
+      profile?.stripe_customer_id,
+    );
 
     if (!customerId) {
-      const email = (context.claims as { email?: string } | undefined)?.email;
       const customer = await stripe.customers.create({
         ...(email ? { email } : {}),
         metadata: { user_id: userId },
       });
       customerId = customer.id;
-
-      await supabase
-        .from("profiles")
-        .upsert(
-          { id: userId, stripe_customer_id: customerId, company_name: "O meu negócio" },
-          { onConflict: "id" },
-        );
+      await tryPersistPlan(supabase, userId, {
+        plan: (profile?.plan as PlanId) ?? "free",
+        plan_status: "free",
+        stripe_subscription_id: null,
+        stripe_customer_id: customerId,
+      });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -293,7 +279,6 @@ export const confirmCheckoutSession = createServerFn({ method: "POST" })
       plan = planFromPrice(priceId);
     }
 
-    // Metadata do checkout tem prioridade se price ids não baterem com env
     if (!plan || plan === "free") {
       const m = session.metadata?.["plan"];
       if (m === "pro" || m === "business") plan = m;
@@ -310,19 +295,19 @@ export const confirmCheckoutSession = createServerFn({ method: "POST" })
           ? (session.customer as { id: string }).id
           : undefined;
 
-    const result = await applyPlanToProfile(context.supabase, userId, {
+    const { persisted } = await tryPersistPlan(context.supabase, userId, {
       plan,
       plan_status: planStatus,
       stripe_subscription_id: subscriptionId,
       ...(customerId ? { stripe_customer_id: customerId } : {}),
     });
 
-    return { plan: result.plan, planStatus };
+    // Sucesso mesmo com RLS — a app usa este plan + cache local
+    return { plan, planStatus, persisted };
   });
 
 /**
- * Lê subscrições ativas na Stripe e grava o plano no perfil.
- * Usa-se na página de planos (botão + auto ao carregar) para recuperar pagamentos já feitos.
+ * Fonte de verdade: Stripe. Grava na BD se possível; devolve sempre o plano real.
  */
 export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -338,42 +323,71 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
       .eq("id", userId)
       .maybeSingle();
 
-    let customerId = profile?.stripe_customer_id ?? null;
-
-    // Procurar cliente na Stripe por metadata ou e-mail
-    if (!customerId) {
-      const byMeta = await stripe.customers.search({
-        query: `metadata["user_id"]:"${userId}"`,
-        limit: 1,
-      });
-      customerId = byMeta.data[0]?.id ?? null;
-    }
-
-    if (!customerId && email) {
-      const list = await stripe.customers.list({ email, limit: 5 });
-      customerId = list.data[0]?.id ?? null;
-    }
+    const customerId = await findCustomerId(
+      stripe,
+      userId,
+      email,
+      profile?.stripe_customer_id,
+    );
 
     if (!customerId) {
-      return { plan: (profile?.plan as PlanId) ?? "free", synced: false as const };
+      return {
+        plan: (profile?.plan as PlanId) ?? "free",
+        synced: false as const,
+        persisted: false as const,
+      };
     }
 
     const resolved = await resolvePlanFromStripeCustomer(stripe, customerId);
-    if (!resolved) {
-      return { plan: (profile?.plan as PlanId) ?? "free", synced: false as const };
-    }
 
-    // Se já está correto, não grava
-    if (profile?.plan === resolved.plan && resolved.plan !== "free") {
-      return { plan: resolved.plan, synced: true as const, already: true as const };
-    }
-
-    const result = await applyPlanToProfile(supabase, userId, {
+    const { persisted } = await tryPersistPlan(supabase, userId, {
       plan: resolved.plan,
       plan_status: resolved.planStatus,
       stripe_subscription_id: resolved.subscriptionId,
       stripe_customer_id: customerId,
     });
 
-    return { plan: result.plan, synced: true as const, already: false as const };
+    return {
+      plan: resolved.plan,
+      synced: true as const,
+      already: profile?.plan === resolved.plan,
+      persisted,
+    };
+  });
+
+/** Só leitura Stripe — para o painel saber o plano sem depender da BD. */
+export const getEffectivePlan = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const stripe = await getStripe();
+    const userId = context.userId;
+    const email = (context.claims as { email?: string } | undefined)?.email;
+
+    const { data: profile } = await context.supabase
+      .from("profiles")
+      .select("plan, stripe_customer_id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const customerId = await findCustomerId(
+      stripe,
+      userId,
+      email,
+      profile?.stripe_customer_id,
+    );
+
+    if (!customerId) {
+      return { plan: (profile?.plan as PlanId) ?? "free", source: "profile" as const };
+    }
+
+    const resolved = await resolvePlanFromStripeCustomer(stripe, customerId);
+    // tenta gravar em background logic (não bloqueia)
+    void tryPersistPlan(context.supabase, userId, {
+      plan: resolved.plan,
+      plan_status: resolved.planStatus,
+      stripe_subscription_id: resolved.subscriptionId,
+      stripe_customer_id: customerId,
+    });
+
+    return { plan: resolved.plan, source: "stripe" as const };
   });
