@@ -58,6 +58,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useEffectivePlan } from "@/hooks/use-effective-plan";
 import { supabase } from "@/integrations/supabase/client";
 import {
   useAuthUser,
@@ -144,6 +145,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const entriesQuery = useEntries(userId);
   const settingsQuery = useSettings(userId);
   const profileQuery = useProfile(userId);
+  const { plan: effectivePlan } = useEffectivePlan(userId);
   const saveEntry = useSaveEntry(userId);
   const deleteEntry = useDeleteEntry(userId);
   const saveSettings = useSaveSettings(userId);
@@ -156,7 +158,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const today = totals(entries.filter((e) => e.entry_date === todayISO()));
   const monthIncome = totals(entries.filter((e) => e.entry_date.slice(0, 7) === monthISO())).income;
   const pct = goal ? Math.min(100, (monthIncome / goal) * 100) : 0;
-  const planAccess = getPlanAccess(profileQuery.data, entries);
+  const planAccess = getPlanAccess(profileQuery.data, entries, effectivePlan);
 
   useEffect(() => {
     maybeAutoBackup(entries, settingsQuery.data ?? null, profileQuery.data ?? null);
@@ -512,7 +514,7 @@ function RecordsTable({ entries, title, showPayment, onEdit, onDelete }: { entri
               <th className="px-2 pb-3 font-semibold">Descrição</th>
               <th className="px-2 pb-3 font-semibold">Categoria</th>
               {showPayment && <th className="px-2 pb-3 font-semibold">Pagamento</th>}
-              <th className="px-2 pb-3 font-semibold">Tipo</th>
+              <th className="px-2 pb-3 text-right font-semibold">Tipo</th>
               <th className="px-2 pb-3 text-right font-semibold">Valor</th>
               <th className="px-2 pb-3"></th>
             </tr>
