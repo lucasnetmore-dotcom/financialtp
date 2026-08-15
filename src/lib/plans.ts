@@ -67,9 +67,16 @@ export const PLANS: PlanDef[] = [
 export const getPlanDef = (plan: PlanId): PlanDef =>
   PLANS.find((p) => p.id === plan) ?? PLANS[0]!;
 
-/** Função central: plano do utilizador + permissões e limites. */
-export function getPlanAccess(profile: Profile | null | undefined, entries: Entry[]) {
-  const plan: PlanId = (profile?.plan as PlanId | undefined) ?? "free";
+/**
+ * Plano efetivo: override (Stripe/cache) > perfil na BD > free
+ */
+export function getPlanAccess(
+  profile: Profile | null | undefined,
+  entries: Entry[],
+  planOverride?: PlanId | null,
+) {
+  const plan: PlanId =
+    planOverride ?? (profile?.plan as PlanId | undefined) ?? "free";
   const def = getPlanDef(plan);
   const limit = def.monthlyEntryLimit;
   const month = monthISO();
