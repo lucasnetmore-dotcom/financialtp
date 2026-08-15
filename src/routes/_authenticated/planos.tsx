@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Check, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, CreditCard, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ import { useEffectivePlan } from "@/hooks/use-effective-plan";
 import { supabase } from "@/integrations/supabase/client";
 import {
   confirmCheckoutSession,
+  createBillingPortalSession,
   createCheckoutSession,
   syncSubscriptionFromStripe,
 } from "@/lib/billing.functions";
@@ -51,11 +52,13 @@ function PlanosPage() {
   );
   const startCheckout = useServerFn(createCheckoutSession);
   const confirmCheckout = useServerFn(confirmCheckoutSession);
+  const openPortal = useServerFn(createBillingPortalSession);
   const syncSub = useServerFn(syncSubscriptionFromStripe);
   const queryClient = useQueryClient();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const handledCheckout = useRef(false);
   const didAutoSync = useRef(false);
 
@@ -178,6 +181,22 @@ function PlanosPage() {
     }
   }
 
+  async function handleManageSubscription() {
+    setPortalLoading(true);
+    try {
+      await supabase.auth.refreshSession();
+      const { url } = await openPortal({ data: { origin: window.location.origin } });
+      window.location.href = url;
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível abrir a gestão da subscrição. Ative o Customer Portal no Stripe.",
+      );
+      setPortalLoading(false);
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-[1100px] px-5 py-9 lg:px-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -188,19 +207,36 @@ function PlanosPage() {
           <ArrowLeft className="size-4" />
           Voltar ao painel
         </Link>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={syncing || activating}
-          onClick={() => void runSync()}
-        >
-          {syncing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCw className="size-4" />
-          )}
-          Sincronizar plano
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {access.isPaid ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={portalLoading}
+              onClick={() => void handleManageSubscription()}
+            >
+              {portalLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <CreditCard className="size-4" />
+              )}
+              Gerir / cancelar
+            </Button>
+          ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={syncing || activating}
+            onClick={() => void runSync()}
+          >
+            {syncing ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            Sincronizar plano
+          </Button>
+        </div>
       </div>
 
       <header className="mt-5 animate-fade-up">
@@ -270,9 +306,27 @@ function PlanosPage() {
 
               <div className="mt-6 pt-1">
                 {current ? (
-                  <Button variant="outline" className="w-full" disabled>
-                    Plano atual
-                  </Button>
+                  plan.id === "free" ? (
+                    <Button variant="outline" className="w-full" disabled>
+                      Plano atual
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={portalLoading}
+                      onClick={() => void handleManageSubscription()}
+                    >
+                      {portalLoading ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          A abrir…
+                        </>
+                      ) : (
+                        <>Gerir subscrição</>
+                      )}
+                    </Button>
+                  )
                 ) : plan.id === "free" ? (
                   <Button variant="outline" className="w-full" disabled>
                     Incluído
@@ -298,6 +352,14 @@ function PlanosPage() {
           );
         })}
       </div>
+
+      <p className="mt-8 text-center text-xs text-muted-foreground">
+        Pagamentos seguros via Stripe. Pode cancelar a qualquer momento — o acesso pago mantém-se até
+        ao fim do período já pago.{" "}
+        <Link to="/termos" className="underline hover:text-foreground">
+          Termos
+        </Link>
+      </p>
     </main>
   );
 }
