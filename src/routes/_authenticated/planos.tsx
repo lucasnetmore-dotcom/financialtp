@@ -1,13 +1,17 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { confirmCheckoutSession, createCheckoutSession } from "@/lib/billing.functions";
+import {
+  confirmCheckoutSession,
+  createCheckoutSession,
+  syncSubscriptionFromStripe,
+} from "@/lib/billing.functions";
 import { useAuthUser, useEntries, useProfile } from "@/lib/data";
 import { getPlanAccess, PLANS } from "@/lib/plans";
 import { cn } from "@/lib/utils";
@@ -40,10 +44,64 @@ function PlanosPage() {
   const access = getPlanAccess(profileQuery.data, entriesQuery.data ?? []);
   const startCheckout = useServerFn(createCheckoutSession);
   const confirmCheckout = useServerFn(confirmCheckoutSession);
+  const syncSub = useServerFn(syncSubscriptionFromStripe);
   const queryClient = useQueryClient();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const handledCheckout = useRef(false);
+  const didAutoSync = useRef(false);
+
+  async function refreshProfile() {
+    await queryClient.invalidateQueries({ queryKey: ["profile"] });
+    await profileQuery.refetch();
+  }
+
+  async function runSync(opts?: { silent?: boolean }) {
+    setSyncing(true);
+    try {
+      await supabase.auth.refreshSession();
+      const result = await syncSub();
+      await refreshProfile();
+      if (!opts?.silent) {
+        if (result.plan === "business" || result.plan === "pro") {
+          toast.success(
+            result.already
+              ? `Plano ${result.plan === "business" ? "Business" : "Pro"} já estava ativo.`
+              : `Plano ${result.plan === "business" ? "Business" : "Pro"} sincronizado!`,
+          );
+        } else if (result.synced) {
+          toast.info("Sem subscrição ativa na Stripe — plano Free.");
+        } else {
+          toast.message("Não encontrámos pagamento associado a esta conta na Stripe.");
+        }
+      } else if (result.synced && !result.already && result.plan !== "free") {
+        toast.success(`Plano ${result.plan === "business" ? "Business" : "Pro"} ativado!`);
+      }
+      return result;
+    } catch (error) {
+      if (!opts?.silent) {
+        toast.error(error instanceof Error ? error.message : "Falha ao sincronizar o plano.");
+      }
+      throw error;
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  // Ao abrir a página: tenta sincronizar se ainda está free (recupera pagamentos já feitos)
+  useEffect(() => {
+    if (!userId || didAutoSync.current) return;
+    if (profileQuery.isLoading) return;
+    didAutoSync.current = true;
+    const current = profileQuery.data?.plan ?? "free";
+    if (current === "free") {
+      void runSync({ silent: true }).catch(() => {
+        /* silencioso */
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, profileQuery.isLoading, profileQuery.data?.plan]);
 
   useEffect(() => {
     if (handledCheckout.current) return;
@@ -59,43 +117,40 @@ function PlanosPage() {
       toast.info("Pagamento cancelado.");
       return;
     }
-
     if (result !== "success") return;
 
     void (async () => {
       setActivating(true);
       toast.loading("A ativar o seu plano…", { id: "activate-plan" });
-
       try {
         await supabase.auth.refreshSession();
 
         if (sessionId?.startsWith("cs_")) {
           const { plan } = await confirmCheckout({ data: { sessionId } });
-          await queryClient.invalidateQueries({ queryKey: ["profile"] });
+          await refreshProfile();
           toast.success(`Plano ${plan === "business" ? "Business" : "Pro"} ativado!`, {
             id: "activate-plan",
           });
         } else {
-          // Sem session_id (URL antiga): só refresca o perfil (webhook pode ter atualizado)
-          let tries = 0;
-          const timer = window.setInterval(() => {
-            tries += 1;
-            void queryClient.invalidateQueries({ queryKey: ["profile"] });
-            if (tries >= 8) window.clearInterval(timer);
-          }, 2000);
-          toast.success("Pagamento recebido. A sincronizar o plano…", { id: "activate-plan" });
+          await runSync({ silent: true });
+          toast.success("Pagamento recebido. Plano sincronizado.", { id: "activate-plan" });
         }
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Não foi possível ativar o plano.";
-        toast.error(message, { id: "activate-plan" });
-        // Ainda assim tenta refrescar por se o webhook tiver funcionado
-        void queryClient.invalidateQueries({ queryKey: ["profile"] });
+        try {
+          await runSync({ silent: true });
+          toast.success("Plano sincronizado a partir da Stripe.", { id: "activate-plan" });
+        } catch {
+          toast.error(
+            error instanceof Error ? error.message : "Não foi possível ativar o plano.",
+            { id: "activate-plan" },
+          );
+        }
       } finally {
         setActivating(false);
       }
     })();
-  }, [confirmCheckout, queryClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleUpgrade(plan: "pro" | "business") {
     setLoadingPlan(plan);
@@ -114,21 +169,34 @@ function PlanosPage() {
       window.location.href = url;
     } catch (error) {
       setLoadingPlan(null);
-      const message =
-        error instanceof Error ? error.message : "Não foi possível abrir o pagamento.";
-      toast.error(message);
+      toast.error(error instanceof Error ? error.message : "Não foi possível abrir o pagamento.");
     }
   }
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-5 py-9 lg:px-10">
-      <Link
-        to="/painel"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Voltar ao painel
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          to="/painel"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" />
+          Voltar ao painel
+        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={syncing || activating}
+          onClick={() => void runSync()}
+        >
+          {syncing ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <RefreshCw className="size-4" />
+          )}
+          Sincronizar plano
+        </Button>
+      </div>
 
       <header className="mt-5 animate-fade-up">
         <p className="eyebrow">Subscrição</p>
@@ -136,10 +204,10 @@ function PlanosPage() {
           Escolha o seu <span className="gold-text">plano</span>
         </h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          {activating ? (
+          {activating || syncing ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 className="size-3.5 animate-spin" />
-              A ativar o plano após o pagamento…
+              A sincronizar o plano com a Stripe…
             </span>
           ) : (
             <>
@@ -207,7 +275,7 @@ function PlanosPage() {
                 ) : (
                   <Button
                     className="w-full"
-                    disabled={loadingPlan !== null || activating}
+                    disabled={loadingPlan !== null || activating || syncing}
                     onClick={() => void handleUpgrade(plan.id as "pro" | "business")}
                   >
                     {loadingPlan === plan.id ? (
