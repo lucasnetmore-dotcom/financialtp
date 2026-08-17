@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { PLANS } from "@/lib/plans";
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -54,7 +55,7 @@ function Landing() {
           </h1>
           <p className="mt-5 text-base text-muted-foreground sm:text-lg">
             Entradas, saídas e meta mensal num só sítio — sincronizado no telemóvel e no PC, com
-            insights de IA a partir dos seus dados reais.
+            insights automáticos a partir dos seus dados reais.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button asChild size="lg">
@@ -71,7 +72,7 @@ function Landing() {
             )}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Sem cartão no plano Free · Cancele quando quiser nos planos pagos
+            Sem cartão no plano Free · Cancele quando quiser · Pagamentos seguros Stripe
           </p>
         </section>
 
@@ -151,6 +152,16 @@ function Landing() {
                 tempo real.
               </dd>
             </div>
+            <div className="panel p-4">
+              <dt className="font-semibold">Preciso de ajuda?</dt>
+              <dd className="mt-1 text-muted-foreground">
+                Escreva para{" "}
+                <a className="text-primary underline" href={SUPPORT_MAILTO}>
+                  {SUPPORT_EMAIL}
+                </a>
+                .
+              </dd>
+            </div>
           </dl>
         </section>
 
@@ -161,7 +172,7 @@ function Landing() {
           <Link to="/termos" className="hover:text-foreground">
             Termos
           </Link>
-          <a href="mailto:suporte@financeflow.ai" className="hover:text-foreground">
+          <a href={SUPPORT_MAILTO} className="hover:text-foreground">
             Suporte
           </a>
         </footer>
