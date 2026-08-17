@@ -35,7 +35,9 @@ export function AiInsights({
         </span>
         <div>
           <h2 className="font-display text-base font-semibold">Insights Finance Flow AI</h2>
-          <p className="text-xs text-muted-foreground">Análise automática com base nos seus dados reais</p>
+          <p className="text-xs text-muted-foreground">
+            Análise automática da margem, meta e categorias — com base nos seus lançamentos
+          </p>
         </div>
       </div>
 
