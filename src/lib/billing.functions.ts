@@ -36,24 +36,27 @@ async function tryPersistPlan(
   },
 ): Promise<{ persisted: boolean }> {
   try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin
-      .from("profiles")
-      .upsert(
-        {
-          id: userId,
-          plan: patch.plan,
-          plan_status: patch.plan_status,
-          stripe_subscription_id: patch.stripe_subscription_id,
-          ...(patch.stripe_customer_id ? { stripe_customer_id: patch.stripe_customer_id } : {}),
-        },
-        { onConflict: "id" },
-      )
-      .select("id, plan")
-      .maybeSingle();
-    if (!error && data?.plan === patch.plan) return { persisted: true };
+    const { getSupabaseAdminOptional } = await import("@/integrations/supabase/client.server");
+    const admin = getSupabaseAdminOptional();
+    if (admin) {
+      const { data, error } = await admin
+        .from("profiles")
+        .upsert(
+          {
+            id: userId,
+            plan: patch.plan,
+            plan_status: patch.plan_status,
+            stripe_subscription_id: patch.stripe_subscription_id,
+            ...(patch.stripe_customer_id ? { stripe_customer_id: patch.stripe_customer_id } : {}),
+          },
+          { onConflict: "id" },
+        )
+        .select("id, plan")
+        .maybeSingle();
+      if (!error && data?.plan === patch.plan) return { persisted: true };
+    }
   } catch {
-    /* sem service role */
+    /* admin opcional */
   }
 
   try {
@@ -225,7 +228,6 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     return { url: session.url };
   });
 
-/** Portal do cliente Stripe — fatura, cartão, cancelar. */
 export const createBillingPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { origin: string }) => {
