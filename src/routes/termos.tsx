@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support";
+
 export const Route = createFileRoute("/termos")({
   head: () => ({
     meta: [
@@ -77,8 +79,8 @@ function TermosPage() {
         <section>
           <h2 className="font-display text-base font-semibold text-foreground">7. Contacto</h2>
           <p className="mt-2">
-            <a className="text-primary underline" href="mailto:suporte@financeflow.ai">
-              suporte@financeflow.ai
+            <a className="text-primary underline" href={SUPPORT_MAILTO}>
+              {SUPPORT_EMAIL}
             </a>
           </p>
         </section>
