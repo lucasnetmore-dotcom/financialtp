@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support";
+
 export const Route = createFileRoute("/privacidade")({
   head: () => ({
     meta: [
@@ -28,8 +30,8 @@ function PrivacidadePage() {
           <p className="mt-2">
             O Finance Flow AI é uma aplicação de gestão financeira sincronizada. O responsável pelo
             tratamento dos dados é o operador da plataforma contactável em{" "}
-            <a className="text-primary underline" href="mailto:suporte@financeflow.ai">
-              suporte@financeflow.ai
+            <a className="text-primary underline" href={SUPPORT_MAILTO}>
+              {SUPPORT_EMAIL}
             </a>
             .
           </p>
@@ -68,8 +70,8 @@ function PrivacidadePage() {
           <h2 className="font-display text-base font-semibold text-foreground">5. Armazenamento</h2>
           <p className="mt-2">
             Os dados são guardados em infraestrutura Supabase (base de dados e autenticação). Os
-            insights de IA são calculados localmente no seu dispositivo a partir dos dados da sua
-            conta. Pode apagar a conta e os dados associados nas Definições da aplicação.
+            insights são calculados localmente no seu dispositivo a partir dos dados da sua conta.
+            Pode apagar a conta e os dados associados nas Definições da aplicação.
           </p>
         </section>
 
@@ -85,8 +87,8 @@ function PrivacidadePage() {
           <h2 className="font-display text-base font-semibold text-foreground">7. Contacto</h2>
           <p className="mt-2">
             Para questões de privacidade:{" "}
-            <a className="text-primary underline" href="mailto:suporte@financeflow.ai">
-              suporte@financeflow.ai
+            <a className="text-primary underline" href={SUPPORT_MAILTO}>
+              {SUPPORT_EMAIL}
             </a>
             .
           </p>
