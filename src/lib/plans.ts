@@ -53,13 +53,13 @@ export const PLANS: PlanDef[] = [
     name: "Business",
     price: "€19,90",
     period: "por mês",
-    tagline: "Para equipas e vários negócios.",
+    tagline: "Para quem precisa de prioridade e escala.",
     monthlyEntryLimit: null,
     features: [
       "Tudo o que está no Pro",
       "Lançamentos ilimitados",
-      "Estrutura pronta para múltiplos utilizadores",
-      "Apoio prioritário por e-mail",
+      "Prioridade no suporte por e-mail",
+      "Ideal para negócios com mais movimento",
     ],
   },
 ];
@@ -67,9 +67,6 @@ export const PLANS: PlanDef[] = [
 export const getPlanDef = (plan: PlanId): PlanDef =>
   PLANS.find((p) => p.id === plan) ?? PLANS[0]!;
 
-/**
- * Plano efetivo: override (Stripe/cache) > perfil na BD > free
- */
 export function getPlanAccess(
   profile: Profile | null | undefined,
   entries: Entry[],
