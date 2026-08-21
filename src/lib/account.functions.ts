@@ -15,6 +15,8 @@ export const deleteAccount = createServerFn({ method: "POST" })
 
     const userId = context.userId;
 
+    await admin.from("appointments").delete().eq("user_id", userId);
+    await admin.from("clients").delete().eq("user_id", userId);
     await admin.from("entries").delete().eq("user_id", userId);
     await admin.from("settings").delete().eq("user_id", userId);
     await admin.from("profiles").delete().eq("id", userId);
