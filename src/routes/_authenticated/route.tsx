@@ -19,8 +19,8 @@ export const Route = createFileRoute("/_authenticated")({
         const result = await getEffectivePlan();
         plan = result.plan ?? "free";
       } catch {
-        const { data: profile } = await supabase.from("profiles").select("plan").eq("user_id", data.user.id).maybeSingle();
-        plan = profile?.plan ?? "free";
+        // Fail closed: an unverified billing state must never unlock paid CRM access.
+        plan = "free";
       }
       if (plan !== "pro" && plan !== "business") throw redirect({ to: "/planos" });
     }
@@ -43,23 +43,15 @@ export const Route = createFileRoute("/_authenticated")({
       });
       void getEffectivePlan().then((result) => {
         if (active) setCanAccessCrm(result.plan === "pro" || result.plan === "business");
-      }).catch(async () => {
-        const { data } = await supabase.auth.getUser();
-        if (!data.user) return;
-        const { data: profile } = await supabase.from("profiles").select("plan").eq("user_id", data.user.id).maybeSingle();
-        if (active) setCanAccessCrm(profile?.plan === "pro" || profile?.plan === "business");
+      }).catch(() => {
+        if (active) setCanAccessCrm(false);
       });
       return () => { active = false; };
     }, [pathname]);
 
     async function acceptLegal() {
-      const { error } = await supabase.auth.updateUser({
-        data: { legal_consent: true, legal_consent_version: LEGAL_VERSION, legal_consent_at: new Date().toISOString() },
-      });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
+      const { error } = await supabase.auth.updateUser({ data: { legal_consent: true, legal_consent_version: LEGAL_VERSION, legal_consent_at: new Date().toISOString() } });
+      if (error) { toast.error(error.message); return; }
       setLegalAccepted(true);
     }
 
