@@ -107,9 +107,18 @@ export function EntryDialog({
       return;
     }
     setCreatingClient(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      toast.error("Sessão terminada. Entre novamente na sua conta.");
+      setCreatingClient(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("clients")
       .insert({
+        user_id: userId,
         name: newClient.name.trim(),
         email: newClient.email.trim() || null,
         phone: newClient.phone.trim() || null,
@@ -165,89 +174,37 @@ export function EntryDialog({
           >
             <div className="grid gap-1.5">
               <Label htmlFor="type">Tipo</Label>
-              <select
-                id="type"
-                className={selectClass}
-                value={form.type}
-                onChange={(e) => set("type", e.target.value as Entry["type"])}
-              >
+              <select id="type" className={selectClass} value={form.type} onChange={(e) => set("type", e.target.value as Entry["type"])}>
                 <option value="income">Entrada</option>
                 <option value="expense">Saída</option>
               </select>
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="value">Valor (€)</Label>
-              <Input id="value" type="number" step="0.01" min="0" required value={form.value || ""} onChange={(e) => set("value", Number(e.target.value))} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="date">Data</Label>
-              <Input id="date" type="date" required value={form.entry_date} onChange={(e) => set("entry_date", e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="category">Categoria</Label>
-              <Input id="category" placeholder="Vendas, Rendas, Salários…" value={form.category} onChange={(e) => set("category", e.target.value)} />
-            </div>
-            <div className="grid gap-1.5 sm:col-span-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Input id="description" required value={form.description} onChange={(e) => set("description", e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="payment">Pagamento</Label>
-              <select id="payment" className={selectClass} value={form.payment} onChange={(e) => set("payment", e.target.value)}>
-                <option value="">—</option>
-                {PAYMENTS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
+            <div className="grid gap-1.5"><Label htmlFor="value">Valor (€)</Label><Input id="value" type="number" step="0.01" min="0" required value={form.value || ""} onChange={(e) => set("value", Number(e.target.value))} /></div>
+            <div className="grid gap-1.5"><Label htmlFor="date">Data</Label><Input id="date" type="date" required value={form.entry_date} onChange={(e) => set("entry_date", e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label htmlFor="category">Categoria</Label><Input id="category" placeholder="Vendas, Rendas, Salários…" value={form.category} onChange={(e) => set("category", e.target.value)} /></div>
+            <div className="grid gap-1.5 sm:col-span-2"><Label htmlFor="description">Descrição</Label><Input id="description" required value={form.description} onChange={(e) => set("description", e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label htmlFor="payment">Pagamento</Label><select id="payment" className={selectClass} value={form.payment} onChange={(e) => set("payment", e.target.value)}><option value="">—</option>{PAYMENTS.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
 
             <div className="sm:col-span-2 rounded-2xl border border-primary/20 bg-primary/5 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <Label htmlFor="client">Cliente</Label>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    O lançamento fica associado à ficha do cliente e entra no histórico de gastos.
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">O lançamento fica associado à ficha do cliente e entra no histórico de gastos.</p>
                 </div>
-                <Link to="/crm" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
-                  <Users className="size-3.5" /> Gerir clientes
-                </Link>
+                <Link to="/crm" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"><Users className="size-3.5" /> Gerir clientes</Link>
               </div>
               <div className="mt-3 flex gap-2">
-                <select
-                  id="client"
-                  className={selectClass}
-                  value={selectedClient?.id ?? ""}
-                  disabled={clientLoading}
-                  onChange={(e) => {
-                    const client = clients.find((item) => item.id === e.target.value);
-                    set("client", client?.name ?? "");
-                  }}
-                >
+                <select id="client" className={selectClass} value={selectedClient?.id ?? ""} disabled={clientLoading} onChange={(e) => { const client = clients.find((item) => item.id === e.target.value); set("client", client?.name ?? ""); }}>
                   <option value="">{clientLoading ? "A carregar clientes…" : "Selecione um cliente…"}</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>{client.name}{client.nif ? ` · ${client.nif}` : ""}</option>
-                  ))}
+                  {clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.nif ? ` · ${client.nif}` : ""}</option>)}
                 </select>
-                <Button type="button" variant="outline" onClick={() => setShowNewClient(true)} title="Criar ficha de cliente">
-                  <UserPlus className="size-4" />
-                  <span className="hidden sm:inline">Novo</span>
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowNewClient(true)} title="Criar ficha de cliente"><UserPlus className="size-4" /><span className="hidden sm:inline">Novo</span></Button>
               </div>
-              {selectedClient && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Ficha selecionada: <strong className="text-foreground">{selectedClient.name}</strong>
-                  {selectedClient.email ? ` · ${selectedClient.email}` : ""}
-                </p>
-              )}
+              {selectedClient && <p className="mt-2 text-xs text-muted-foreground">Ficha selecionada: <strong className="text-foreground">{selectedClient.name}</strong>{selectedClient.email ? ` · ${selectedClient.email}` : ""}</p>}
             </div>
 
-            <div className="grid gap-1.5 sm:col-span-2">
-              <Label htmlFor="notes">Observações</Label>
-              <Textarea id="notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
-            </div>
-            <DialogFooter className="sm:col-span-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button type="submit" disabled={saving || clientLoading}>{saving ? "A guardar…" : "Guardar lançamento"}</Button>
-            </DialogFooter>
+            <div className="grid gap-1.5 sm:col-span-2"><Label htmlFor="notes">Observações</Label><Textarea id="notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} /></div>
+            <DialogFooter className="sm:col-span-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={saving || clientLoading}>{saving ? "A guardar…" : "Guardar lançamento"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -255,13 +212,7 @@ export function EntryDialog({
       {showNewClient && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-black/40 p-4" onClick={() => setShowNewClient(false)}>
           <div className="w-full max-w-md rounded-2xl border bg-background p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Criar ficha de cliente</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Depois de criar, o cliente já fica selecionado neste lançamento.</p>
-              </div>
-              <Button type="button" variant="ghost" onClick={() => setShowNewClient(false)}>Fechar</Button>
-            </div>
+            <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold">Criar ficha de cliente</h2><p className="mt-1 text-sm text-muted-foreground">Depois de criar, o cliente já fica selecionado neste lançamento.</p></div><Button type="button" variant="ghost" onClick={() => setShowNewClient(false)}>Fechar</Button></div>
             <div className="mt-5 grid gap-4">
               <div className="grid gap-1.5"><Label>Nome *</Label><Input autoFocus value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} /></div>
               <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} /></div>
