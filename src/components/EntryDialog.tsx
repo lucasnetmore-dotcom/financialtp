@@ -54,8 +54,6 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
   const selectedClient = clients.find((client) => client.name.trim().toLowerCase() === form.client.trim().toLowerCase());
 
   function openNewClient() {
-    // Fecha o Dialog principal antes de abrir o cadastro. Dialogs aninhados
-    // mantêm o overlay/pointer-events do primeiro modal e podem bloquear inputs.
     onOpenChange(false);
     setShowNewClient(true);
   }
@@ -66,14 +64,28 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
   }
 
   async function createClient() {
-    if (!newClient.name.trim()) { toast.error("Informe o nome do cliente."); return; }
+    const name = newClient.name.trim();
+    const phone = newClient.phone.trim();
+
+    if (!name) {
+      toast.error("Informe o nome do cliente.");
+      return;
+    }
+    if (!phone) {
+      toast.error("Informe o número de telefone do cliente.");
+      return;
+    }
+
     setCreatingClient(true);
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
     if (!userId) { toast.error("Sessão terminada. Entre novamente na sua conta."); setCreatingClient(false); return; }
     const { data, error } = await supabase.from("clients").insert({
-      user_id: userId, name: newClient.name.trim(), email: newClient.email.trim() || null,
-      phone: newClient.phone.trim() || null, nif: newClient.nif.trim() || null,
+      user_id: userId,
+      name,
+      email: newClient.email.trim() || null,
+      phone,
+      nif: newClient.nif.trim() || null,
     }).select("id,name,email,phone,nif").single();
     if (error) {
       toast.error(error.message.includes("clients_user_name") ? "Já existe um cliente com este nome." : "Não foi possível criar o cliente.");
@@ -120,11 +132,11 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
     <Dialog open={showNewClient} onOpenChange={(value) => value ? setShowNewClient(true) : closeNewClient(true)}>
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Criar ficha de cliente</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">Preencha os dados. Depois de criar, o cliente será automaticamente selecionado no lançamento.</p>
+        <p className="text-sm text-muted-foreground">Preencha os dados. Nome e telefone são obrigatórios. Email e NIF são opcionais.</p>
         <div className="grid gap-4 pt-2">
-          <div className="grid gap-1.5"><Label htmlFor="new-client-name">Nome *</Label><Input id="new-client-name" autoFocus value={newClient.name} onChange={(e) => setNewClient((v) => ({ ...v, name: e.target.value }))} /></div>
+          <div className="grid gap-1.5"><Label htmlFor="new-client-name">Nome *</Label><Input id="new-client-name" autoFocus required value={newClient.name} onChange={(e) => setNewClient((v) => ({ ...v, name: e.target.value }))} /></div>
           <div className="grid gap-1.5"><Label htmlFor="new-client-email">Email</Label><Input id="new-client-email" type="email" value={newClient.email} onChange={(e) => setNewClient((v) => ({ ...v, email: e.target.value }))} /></div>
-          <div className="grid gap-1.5"><Label htmlFor="new-client-phone">Telefone</Label><Input id="new-client-phone" value={newClient.phone} onChange={(e) => setNewClient((v) => ({ ...v, phone: e.target.value }))} /></div>
+          <div className="grid gap-1.5"><Label htmlFor="new-client-phone">Telefone *</Label><Input id="new-client-phone" required value={newClient.phone} onChange={(e) => setNewClient((v) => ({ ...v, phone: e.target.value }))} /></div>
           <div className="grid gap-1.5"><Label htmlFor="new-client-nif">NIF</Label><Input id="new-client-nif" value={newClient.nif} onChange={(e) => setNewClient((v) => ({ ...v, nif: e.target.value }))} /></div>
         </div>
         <DialogFooter><Button type="button" variant="outline" onClick={() => closeNewClient(true)}>Cancelar</Button><Button type="button" disabled={creatingClient} onClick={() => void createClient()}>{creatingClient ? "A criar…" : "Criar ficha e selecionar"}</Button></DialogFooter>
