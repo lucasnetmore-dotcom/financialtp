@@ -49,8 +49,12 @@ async function findCustomerId(stripe: Awaited<ReturnType<typeof getStripe>>, use
 
 async function resolvePlanFromStripeCustomer(stripe: Awaited<ReturnType<typeof getStripe>>, customerId: string): Promise<{ plan: PlanId; planStatus: string; subscriptionId: string | null }> {
   const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 15 });
-  const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
-  if (!active) return { plan: "free", planStatus: "canceled", subscriptionId: null };
+  // Only fully active/trialing subscriptions grant paid access. past_due/unpaid are fail-closed.
+  const active = subs.data.find((s) => ["active", "trialing"].includes(s.status));
+  if (!active) {
+    const latest = subs.data.find((s) => ["past_due", "unpaid", "incomplete", "incomplete_expired"].includes(s.status));
+    return { plan: "free", planStatus: latest?.status ?? "canceled", subscriptionId: null };
+  }
   const priceId = active.items.data[0]?.price?.id;
   const fromPrice = planFromPrice(priceId);
   const fromMeta = active.metadata?.["plan"] as PlanId | undefined;
@@ -67,9 +71,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" }).middlewa
   if (!priceId) throw new Error("Falta o Price ID do plano no Vercel (STRIPE_PRICE_PRO / BUSINESS).");
   const stripe = await getStripe(); const userId = context.userId; const supabase = context.supabase;
   const email = (context.claims as { email?: string } | undefined)?.email;
-  const { data: profile } = await supabase.from("profiles").select("plan, stripe_customer_id").eq("id", userId).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("plan, plan_status, stripe_customer_id, stripe_subscription_id").eq("id", userId).maybeSingle();
   let customerId = await findCustomerId(stripe, userId, email, profile?.stripe_customer_id);
   if (!customerId) { const customer = await stripe.customers.create({ ...(email ? { email } : {}), metadata: { user_id: userId } }); customerId = customer.id; await tryPersistPlan(supabase, userId, { plan: (profile?.plan as PlanId) ?? "free", plan_status: "free", stripe_subscription_id: null, stripe_customer_id: customerId }); }
+  const existing = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 15 });
+  const hasPaidSubscription = existing.data.some((s) => ["active", "trialing", "past_due", "unpaid"].includes(s.status));
+  if (hasPaidSubscription) throw new Error("Já existe uma subscrição associada a esta conta. Use “Gerir / cancelar” para alterar o plano.");
   const session = await stripe.checkout.sessions.create({ mode: "subscription", customer: customerId, client_reference_id: userId, line_items: [{ price: priceId, quantity: 1 }], allow_promotion_codes: true, metadata: { user_id: userId, plan: data.plan }, subscription_data: { metadata: { user_id: userId, plan: data.plan } }, success_url: `${data.origin}/planos?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${data.origin}/planos?checkout=cancel` });
   if (!session.url) throw new Error("Não foi possível iniciar o pagamento.");
   return { url: session.url };
@@ -103,6 +110,7 @@ export const confirmCheckoutSession = createServerFn({ method: "POST" }).middlew
   if (!plan && session.line_items?.data?.[0]?.price) { const p = session.line_items.data[0].price; const priceId = typeof p === "string" ? p : p.id; plan = planFromPrice(priceId); }
   if (!plan || plan === "free") { const m = session.metadata?.["plan"]; if (m === "pro" || m === "business") plan = m; }
   if (!plan || plan === "free") throw new Error("Não foi possível identificar o plano pago.");
+  if (!["active", "trialing"].includes(planStatus)) throw new Error("A subscrição ainda não está ativa.");
   const customerId = typeof session.customer === "string" ? session.customer : session.customer && typeof session.customer === "object" && "id" in session.customer ? (session.customer as { id: string }).id : undefined;
   const { persisted } = await tryPersistPlan(context.supabase, userId, { plan, plan_status: planStatus, stripe_subscription_id: subscriptionId, ...(customerId ? { stripe_customer_id: customerId } : {}) });
   return { plan, planStatus, persisted };
