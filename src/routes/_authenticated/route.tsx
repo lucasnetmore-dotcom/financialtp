@@ -20,10 +20,12 @@ export const Route = createFileRoute("/_authenticated")({
         {inCrm && (
           <Link
             to="/painel"
-            className="fixed left-4 top-4 z-50 inline-flex items-center gap-2 rounded-xl border border-border/70 bg-card/95 px-3.5 py-2.5 text-sm font-semibold text-foreground shadow-lg backdrop-blur transition-all hover:bg-muted sm:left-6 sm:top-6"
+            aria-label="Voltar para lançamentos e caixa"
+            className="fixed left-3 top-3 z-[100] inline-flex items-center gap-2 rounded-xl border-2 border-primary/30 bg-background px-4 py-3 text-sm font-bold text-foreground shadow-xl ring-1 ring-black/5 backdrop-blur transition-all hover:bg-primary hover:text-primary-foreground sm:left-5 sm:top-5"
           >
-            <ArrowLeft className="size-4" />
-            <span>Voltar ao dashboard</span>
+            <ArrowLeft className="size-5" />
+            <span className="hidden sm:inline">VOLTAR PARA LANÇAMENTOS E CAIXA</span>
+            <span className="sm:hidden">VOLTAR</span>
           </Link>
         )}
         <Link
