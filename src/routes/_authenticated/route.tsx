@@ -1,6 +1,8 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { ArrowLeft, CalendarDays, LockKeyhole } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { OnboardingGate } from "@/components/OnboardingGate";
 import { supabase } from "@/integrations/supabase/client";
 import { getEffectivePlan } from "@/lib/billing.functions";
 
@@ -13,8 +15,13 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth", search: { modo: "entrar" } });
     if (location.pathname === "/crm") {
       let plan = "free";
-      try { const result = await getEffectivePlan(); plan = result.plan ?? "free"; }
-      catch { const { data: profile } = await supabase.from("profiles").select("plan").eq("user_id", data.user.id).maybeSingle(); plan = profile?.plan ?? "free"; }
+      try {
+        const result = await getEffectivePlan();
+        plan = result.plan ?? "free";
+      } catch {
+        const { data: profile } = await supabase.from("profiles").select("plan").eq("user_id", data.user.id).maybeSingle();
+        plan = profile?.plan ?? "free";
+      }
       if (plan !== "pro" && plan !== "business") throw redirect({ to: "/planos" });
     }
     return { user: data.user };
@@ -24,16 +31,21 @@ export const Route = createFileRoute("/_authenticated")({
     const inCrm = pathname === "/crm";
     const [canAccessCrm, setCanAccessCrm] = useState(false);
     const [legalAccepted, setLegalAccepted] = useState<boolean | null>(null);
+    const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
 
     useEffect(() => {
       let active = true;
       void supabase.auth.getUser().then(({ data }) => {
         if (!active) return;
-        const accepted = data.user?.user_metadata?.legal_consent === true && data.user?.user_metadata?.legal_consent_version === LEGAL_VERSION;
-        setLegalAccepted(accepted);
+        const meta = data.user?.user_metadata ?? {};
+        setLegalAccepted(meta.legal_consent === true && meta.legal_consent_version === LEGAL_VERSION);
+        setOnboardingDone(meta.onboarding_completed === true);
       });
-      void getEffectivePlan().then((result) => { if (active) setCanAccessCrm(result.plan === "pro" || result.plan === "business"); }).catch(async () => {
-        const { data } = await supabase.auth.getUser(); if (!data.user) return;
+      void getEffectivePlan().then((result) => {
+        if (active) setCanAccessCrm(result.plan === "pro" || result.plan === "business");
+      }).catch(async () => {
+        const { data } = await supabase.auth.getUser();
+        if (!data.user) return;
         const { data: profile } = await supabase.from("profiles").select("plan").eq("user_id", data.user.id).maybeSingle();
         if (active) setCanAccessCrm(profile?.plan === "pro" || profile?.plan === "business");
       });
@@ -41,14 +53,21 @@ export const Route = createFileRoute("/_authenticated")({
     }, [pathname]);
 
     async function acceptLegal() {
-      const { error } = await supabase.auth.updateUser({ data: { legal_consent: true, legal_consent_version: LEGAL_VERSION, legal_consent_at: new Date().toISOString() } });
-      if (!error) setLegalAccepted(true);
+      const { error } = await supabase.auth.updateUser({
+        data: { legal_consent: true, legal_consent_version: LEGAL_VERSION, legal_consent_at: new Date().toISOString() },
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      setLegalAccepted(true);
     }
 
-    if (legalAccepted === null) return <div className="min-h-screen bg-background" />;
+    if (legalAccepted === null || onboardingDone === null) return <div className="min-h-screen bg-background" />;
     if (!legalAccepted) return <LegalConsentGate onAccept={acceptLegal} />;
+    if (!onboardingDone) return <OnboardingGate onComplete={() => setOnboardingDone(true)} />;
 
-    return <><Outlet />{inCrm && <Link to="/painel" aria-label="Voltar para lançamentos e caixa" className="fixed left-3 top-3 z-[100] inline-flex items-center gap-2 rounded-xl border-2 border-primary/30 bg-background px-4 py-3 text-sm font-bold text-foreground shadow-xl ring-1 ring-black/5 backdrop-blur transition-all hover:bg-primary hover:text-primary-foreground sm:left-5 sm:top-5"><ArrowLeft className="size-5"/><span className="hidden sm:inline">VOLTAR PARA LANÇAMENTOS E CAIXA</span><span className="sm:hidden">VOLTAR</span></Link>}{!inCrm&&<><Link to={canAccessCrm?"/crm":"/planos"} aria-label="CRM / Agenda" className="fixed bottom-5 left-5 z-50 hidden w-[236px] items-center gap-2.5 rounded-xl border border-border/70 bg-sidebar px-4 py-3 text-sm font-semibold text-sidebar-foreground shadow-lg ring-1 ring-black/5 transition-all hover:bg-sidebar-accent lg:flex"><CalendarDays className={canAccessCrm?"size-4 text-primary":"size-4 text-muted-foreground"}/>CRM / Agenda {!canAccessCrm&&<LockKeyhole className="ml-auto size-3.5 text-muted-foreground"/>}</Link><Link to={canAccessCrm?"/crm":"/planos"} aria-label="Agenda" className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg lg:hidden"><CalendarDays className="size-4"/>Agenda {!canAccessCrm&&<LockKeyhole className="size-3.5"/>}</Link></>}</>;
+    return <><Outlet />{inCrm && <Link to="/painel" aria-label="Voltar para lançamentos e caixa" className="fixed left-3 top-3 z-[100] inline-flex items-center gap-2 rounded-xl border-2 border-primary/30 bg-background px-4 py-3 text-sm font-bold text-foreground shadow-xl ring-1 ring-black/5 backdrop-blur transition-all hover:bg-primary hover:text-primary-foreground sm:left-5 sm:top-5"><ArrowLeft className="size-5"/><span className="hidden sm:inline">VOLTAR PARA LANÇAMENTOS E CAIXA</span><span className="sm:hidden">VOLTAR</span></Link>}{!inCrm&&<><Link to={canAccessCrm?"/crm":"/planos"} aria-label="CRM / Agenda" className="fixed bottom-5 left-5 z-50 hidden w-[236px] items-center gap-2.5 rounded-xl border border-border/70 bg-sidebar px-4 py-3 text-sm font-semibold text-sidebar-foreground shadow-lg ring-1 ring-black/5 backdrop-blur transition-all hover:bg-sidebar-accent lg:flex"><CalendarDays className={canAccessCrm?"size-4 text-primary":"size-4 text-muted-foreground"}/>CRM / Agenda {!canAccessCrm&&<LockKeyhole className="ml-auto size-3.5 text-muted-foreground"/>}</Link><Link to={canAccessCrm?"/crm":"/planos"} aria-label="Agenda" className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground lg:hidden"><CalendarDays className="size-4"/>Agenda {!canAccessCrm&&<LockKeyhole className="size-3.5"/>}</Link></>}</>;
   },
 });
 
