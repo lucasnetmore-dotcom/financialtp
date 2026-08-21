@@ -53,6 +53,18 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
   const set = <K extends keyof EntryInput>(key: K, value: EntryInput[K]) => setForm((f) => ({ ...f, [key]: value }));
   const selectedClient = clients.find((client) => client.name.trim().toLowerCase() === form.client.trim().toLowerCase());
 
+  function openNewClient() {
+    // Fecha o Dialog principal antes de abrir o cadastro. Dialogs aninhados
+    // mantêm o overlay/pointer-events do primeiro modal e podem bloquear inputs.
+    onOpenChange(false);
+    setShowNewClient(true);
+  }
+
+  function closeNewClient(reopenEntry = true) {
+    setShowNewClient(false);
+    if (reopenEntry) onOpenChange(true);
+  }
+
   async function createClient() {
     if (!newClient.name.trim()) { toast.error("Informe o nome do cliente."); return; }
     setCreatingClient(true);
@@ -69,9 +81,9 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
       const client = data as Client;
       setClients((current) => [...current, client].sort((a, b) => a.name.localeCompare(b.name)));
       set("client", client.name);
-      setShowNewClient(false);
       setNewClient({ name: "", email: "", phone: "", nif: "" });
       toast.success("Ficha do cliente criada.");
+      closeNewClient(true);
     }
     setCreatingClient(false);
   }
@@ -96,7 +108,7 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
           <div className="grid gap-1.5"><Label>Pagamento</Label><select className={selectClass} value={form.payment} onChange={(e) => set("payment", e.target.value)}><option value="">—</option>{PAYMENTS.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
           <div className="sm:col-span-2 rounded-2xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><Label>Cliente</Label><p className="mt-1 text-xs text-muted-foreground">O lançamento fica associado à ficha do cliente e entra no histórico de gastos.</p></div><Link to="/crm" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"><Users className="size-3.5" /> Gerir clientes</Link></div>
-            <div className="mt-3 flex gap-2"><select className={selectClass} value={selectedClient?.id ?? ""} disabled={clientLoading} onChange={(e) => { const client = clients.find((item) => item.id === e.target.value); set("client", client?.name ?? ""); }}><option value="">{clientLoading ? "A carregar clientes…" : "Selecione um cliente…"}</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.nif ? ` · ${client.nif}` : ""}</option>)}</select><Button type="button" variant="outline" onClick={() => setShowNewClient(true)}><UserPlus className="size-4" /><span className="hidden sm:inline">Novo</span></Button></div>
+            <div className="mt-3 flex gap-2"><select className={selectClass} value={selectedClient?.id ?? ""} disabled={clientLoading} onChange={(e) => { const client = clients.find((item) => item.id === e.target.value); set("client", client?.name ?? ""); }}><option value="">{clientLoading ? "A carregar clientes…" : "Selecione um cliente…"}</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.nif ? ` · ${client.nif}` : ""}</option>)}</select><Button type="button" variant="outline" onClick={openNewClient}><UserPlus className="size-4" /><span className="hidden sm:inline">Novo</span></Button></div>
             {selectedClient && <p className="mt-2 text-xs text-muted-foreground">Ficha selecionada: <strong className="text-foreground">{selectedClient.name}</strong>{selectedClient.email ? ` · ${selectedClient.email}` : ""}</p>}
           </div>
           <div className="grid gap-1.5 sm:col-span-2"><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} /></div>
@@ -105,8 +117,8 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
       </DialogContent>
     </Dialog>
 
-    <Dialog open={showNewClient} onOpenChange={setShowNewClient}>
-      <DialogContent className="z-[100] max-w-md">
+    <Dialog open={showNewClient} onOpenChange={(value) => value ? setShowNewClient(true) : closeNewClient(true)}>
+      <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Criar ficha de cliente</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground">Preencha os dados. Depois de criar, o cliente será automaticamente selecionado no lançamento.</p>
         <div className="grid gap-4 pt-2">
@@ -115,7 +127,7 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
           <div className="grid gap-1.5"><Label htmlFor="new-client-phone">Telefone</Label><Input id="new-client-phone" value={newClient.phone} onChange={(e) => setNewClient((v) => ({ ...v, phone: e.target.value }))} /></div>
           <div className="grid gap-1.5"><Label htmlFor="new-client-nif">NIF</Label><Input id="new-client-nif" value={newClient.nif} onChange={(e) => setNewClient((v) => ({ ...v, nif: e.target.value }))} /></div>
         </div>
-        <DialogFooter><Button type="button" variant="outline" onClick={() => setShowNewClient(false)}>Cancelar</Button><Button type="button" disabled={creatingClient} onClick={() => void createClient()}>{creatingClient ? "A criar…" : "Criar ficha e selecionar"}</Button></DialogFooter>
+        <DialogFooter><Button type="button" variant="outline" onClick={() => closeNewClient(true)}>Cancelar</Button><Button type="button" disabled={creatingClient} onClick={() => void createClient()}>{creatingClient ? "A criar…" : "Criar ficha e selecionar"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </>;
