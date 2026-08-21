@@ -3,6 +3,7 @@ import { ArrowLeft, CalendarDays, LockKeyhole } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { getEffectivePlan } from "@/lib/billing.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -11,13 +12,19 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth", search: { modo: "entrar" } });
 
     if (location.pathname === "/crm") {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("plan")
-        .eq("user_id", data.user.id)
-        .maybeSingle();
+      let plan = "free";
+      try {
+        const result = await getEffectivePlan();
+        plan = result.plan ?? "free";
+      } catch {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("plan")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+        plan = profile?.plan ?? "free";
+      }
 
-      const plan = profile?.plan ?? "free";
       if (plan !== "pro" && plan !== "business") {
         throw redirect({ to: "/planos" });
       }
@@ -32,15 +39,20 @@ export const Route = createFileRoute("/_authenticated")({
 
     useEffect(() => {
       let active = true;
-      void supabase.auth.getUser().then(async ({ data }) => {
-        if (!data.user) return;
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("plan")
-          .eq("user_id", data.user.id)
-          .maybeSingle();
-        if (active) setCanAccessCrm(profile?.plan === "pro" || profile?.plan === "business");
-      });
+      void getEffectivePlan()
+        .then((result) => {
+          if (active) setCanAccessCrm(result.plan === "pro" || result.plan === "business");
+        })
+        .catch(async () => {
+          const { data } = await supabase.auth.getUser();
+          if (!data.user) return;
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("plan")
+            .eq("user_id", data.user.id)
+            .maybeSingle();
+          if (active) setCanAccessCrm(profile?.plan === "pro" || profile?.plan === "business");
+        });
       return () => {
         active = false;
       };
