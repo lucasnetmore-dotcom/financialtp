@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, BrainCircuit, CalendarDays, CircleDollarSign, Sparkles, Users } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { BusinessGrowthCenter } from "@/components/BusinessGrowthCenter";
 import { BusinessOverviewPro } from "@/components/BusinessOverviewPro";
 import { Button } from "@/components/ui/button";
 import { useAuthUser, useEntries, useSettings } from "@/lib/data";
@@ -11,6 +13,7 @@ export const Route = createFileRoute("/_authenticated/comando")({
 
 function CommandCenter() {
   const { userId } = useAuthUser();
+  const queryClient = useQueryClient();
   const { data: entries = [], isLoading } = useEntries(userId);
   const { data: settings } = useSettings(userId);
 
@@ -19,7 +22,7 @@ function CommandCenter() {
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link to="/painel" className="rounded-xl border p-2.5 hover:bg-muted" aria-label="Voltar"><ArrowLeft className="size-4" /></Link>
-          <div><div className="flex items-center gap-2 text-primary"><Sparkles className="size-4" /><span className="eyebrow">Finance Flow AI</span></div><h1 className="mt-1 text-3xl font-bold tracking-tight">Central de Gestão</h1><p className="mt-1 text-sm text-muted-foreground">Uma leitura executiva do teu negócio e acesso rápido ao que precisa de atenção.</p></div>
+          <div><div className="flex items-center gap-2 text-primary"><Sparkles className="size-4" /><span className="eyebrow">Finance Flow AI</span></div><h1 className="mt-1 text-3xl font-bold tracking-tight">Central de Gestão</h1><p className="mt-1 text-sm text-muted-foreground">Financeiro, clientes, agenda e IA a trabalhar como um único sistema.</p></div>
         </div>
       </header>
 
@@ -31,10 +34,16 @@ function CommandCenter() {
         <ActionCard icon={CalendarDays} title="Agenda" body="Organiza marcações, clientes e serviços dentro do CRM sem separar os dados do financeiro." to="/crm" cta="Abrir agenda" />
       </section>
 
+      <BusinessGrowthCenter
+        userId={userId}
+        entries={entries}
+        onFinanceChanged={() => void queryClient.invalidateQueries({ queryKey: ["entries", userId] })}
+      />
+
       <section className="mt-5 panel p-5 lg:p-6">
-        <div className="flex items-center gap-2"><CircleDollarSign className="size-5 text-primary" /><h2 className="font-display text-lg font-semibold">Fluxo recomendado de utilização</h2></div>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          {[['1','Regista','Entradas e saídas alimentam todo o sistema.'],['2','Relaciona','Associa clientes aos lançamentos e marcações.'],['3','Acompanha','Recebe alertas, projeções e indicadores automaticamente.'],['4','Decide','Usa o Finance AI para compreender o contexto e testar cenários.']].map(([n,t,b])=><div key={n} className="rounded-2xl border bg-muted/20 p-4"><span className="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{n}</span><p className="mt-3 font-semibold">{t}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{b}</p></div>)}
+        <div className="flex items-center gap-2"><CircleDollarSign className="size-5 text-primary" /><h2 className="font-display text-lg font-semibold">Fluxo inteligente do Finance Flow</h2></div>
+        <div className="mt-4 grid gap-3 md:grid-cols-5">
+          {[['1','Regista','Entradas e saídas alimentam todo o sistema.'],['2','Relaciona','Associa clientes aos lançamentos e marcações.'],['3','Atende','A agenda regista serviço, horário e cliente.'],['4','Recebe','Transforma o atendimento em receita com um clique.'],['5','Decide','Alertas e Finance AI usam todo o contexto para orientar a gestão.']].map(([n,t,b])=><div key={n} className="rounded-2xl border bg-muted/20 p-4"><span className="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{n}</span><p className="mt-3 font-semibold">{t}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{b}</p></div>)}
         </div>
       </section>
     </div>
