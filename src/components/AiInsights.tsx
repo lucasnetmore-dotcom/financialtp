@@ -26,7 +26,7 @@ export function AiInsights({ entries, settings }: { entries: Entry[]; settings: 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="grid size-8 place-items-center rounded-lg bg-primary/12 text-primary ring-1 ring-primary/20"><Sparkles className="size-4" /></span>
-          <div><h2 className="font-display text-base font-semibold">Insights Finance Flow AI</h2><p className="text-xs text-muted-foreground">Análise automática da margem, meta e categorias — com base nos seus lançamentos</p></div>
+          <div><h2 className="font-display text-base font-semibold">Insights inteligentes</h2><p className="text-xs text-muted-foreground">Análise automática de margem, metas e categorias — sem chat e sem custos de API.</p></div>
         </div>
         <Link to="/comando" className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition hover:bg-muted">Central de Gestão <ArrowRight className="size-3.5" /></Link>
       </div>
