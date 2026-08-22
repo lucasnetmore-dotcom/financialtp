@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
-import { ArrowLeft, CalendarDays, LockKeyhole } from "lucide-react";
+import { ArrowLeft, BrainCircuit, CalendarDays, LockKeyhole } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OnboardingGate } from "@/components/OnboardingGate";
@@ -19,7 +19,6 @@ export const Route = createFileRoute("/_authenticated")({
         const result = await getEffectivePlan();
         plan = result.plan ?? "free";
       } catch {
-        // Fail closed: an unverified billing state must never unlock paid CRM access.
         plan = "free";
       }
       if (plan !== "pro" && plan !== "business") throw redirect({ to: "/planos" });
@@ -29,6 +28,7 @@ export const Route = createFileRoute("/_authenticated")({
   component: () => {
     const pathname = useRouterState({ select: (state) => state.location.pathname });
     const inCrm = pathname === "/crm";
+    const inFinanceAI = pathname === "/finance-ai";
     const [canAccessCrm, setCanAccessCrm] = useState(false);
     const [legalAccepted, setLegalAccepted] = useState<boolean | null>(null);
     const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
@@ -59,7 +59,15 @@ export const Route = createFileRoute("/_authenticated")({
     if (!legalAccepted) return <LegalConsentGate onAccept={acceptLegal} />;
     if (!onboardingDone) return <OnboardingGate onComplete={() => setOnboardingDone(true)} />;
 
-    return <><Outlet />{inCrm && <Link to="/painel" aria-label="Voltar para lançamentos e caixa" className="fixed left-3 top-3 z-[100] inline-flex items-center gap-2 rounded-xl border-2 border-primary/30 bg-background px-4 py-3 text-sm font-bold text-foreground shadow-xl ring-1 ring-black/5 backdrop-blur transition-all hover:bg-primary hover:text-primary-foreground sm:left-5 sm:top-5"><ArrowLeft className="size-5"/><span className="hidden sm:inline">VOLTAR PARA LANÇAMENTOS E CAIXA</span><span className="sm:hidden">VOLTAR</span></Link>}{!inCrm&&<><Link to={canAccessCrm?"/crm":"/planos"} aria-label="CRM / Agenda" className="fixed bottom-5 left-5 z-50 hidden w-[236px] items-center gap-2.5 rounded-xl border border-border/70 bg-sidebar px-4 py-3 text-sm font-semibold text-sidebar-foreground shadow-lg ring-1 ring-black/5 backdrop-blur transition-all hover:bg-sidebar-accent lg:flex"><CalendarDays className={canAccessCrm?"size-4 text-primary":"size-4 text-muted-foreground"}/>CRM / Agenda {!canAccessCrm&&<LockKeyhole className="ml-auto size-3.5 text-muted-foreground"/>}</Link><Link to={canAccessCrm?"/crm":"/planos"} aria-label="Agenda" className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground lg:hidden"><CalendarDays className="size-4"/>Agenda {!canAccessCrm&&<LockKeyhole className="size-3.5"/>}</Link></>}</>;
+    return <>
+      <Outlet />
+      {inCrm && <Link to="/painel" aria-label="Voltar para lançamentos e caixa" className="fixed left-3 top-3 z-[100] inline-flex items-center gap-2 rounded-xl border-2 border-primary/30 bg-background px-4 py-3 text-sm font-bold text-foreground shadow-xl ring-1 ring-black/5 backdrop-blur transition-all hover:bg-primary hover:text-primary-foreground sm:left-5 sm:top-5"><ArrowLeft className="size-5"/><span className="hidden sm:inline">VOLTAR PARA LANÇAMENTOS E CAIXA</span><span className="sm:hidden">VOLTAR</span></Link>}
+      {!inCrm && !inFinanceAI && <>
+        <Link to="/finance-ai" aria-label="Finance AI" className="fixed bottom-5 left-5 z-50 hidden w-[236px] items-center gap-2.5 rounded-xl border border-primary/30 bg-sidebar px-4 py-3 text-sm font-semibold text-sidebar-foreground shadow-lg ring-1 ring-primary/10 backdrop-blur transition-all hover:bg-sidebar-accent lg:flex"><BrainCircuit className="size-4 text-primary"/>Finance AI <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">IA</span></Link>
+        <Link to={"/crm"} aria-label="CRM / Agenda" className="fixed bottom-20 left-5 z-50 hidden w-[236px] items-center gap-2.5 rounded-xl border border-border/70 bg-sidebar px-4 py-3 text-sm font-semibold text-sidebar-foreground shadow-lg ring-1 ring-black/5 backdrop-blur transition-all hover:bg-sidebar-accent lg:flex"><CalendarDays className={canAccessCrm?"size-4 text-primary":"size-4 text-muted-foreground"}/>CRM / Agenda {!canAccessCrm&&<LockKeyhole className="ml-auto size-3.5 text-muted-foreground"/>}</Link>
+        <Link to="/finance-ai" aria-label="Finance AI" className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground lg:hidden"><BrainCircuit className="size-4"/>Finance AI</Link>
+      </>}
+    </>;
   },
 });
 
