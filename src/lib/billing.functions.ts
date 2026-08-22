@@ -5,6 +5,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 type PaidPlan = "pro" | "business";
 type PlanId = "free" | "pro" | "business";
 
+const STRIPE_PRICE_PRO_DEFAULT = "price_1U7GZV1795BiguAehJ2XGO8i";
+const STRIPE_PRICE_BUSINESS_DEFAULT = "price_1U7Gaw1795BiguAedIdTlvqF";
+const stripePricePro = () => process.env["STRIPE_PRICE_PRO"] || STRIPE_PRICE_PRO_DEFAULT;
+const stripePriceBusiness = () => process.env["STRIPE_PRICE_BUSINESS"] || STRIPE_PRICE_BUSINESS_DEFAULT;
+
 function getStripe() {
   const secretKey = process.env["STRIPE_SECRET_KEY"];
   if (!secretKey) throw new Error("Pagamentos não configurados. Falta STRIPE_SECRET_KEY no Vercel.");
@@ -13,8 +18,8 @@ function getStripe() {
 
 function planFromPrice(priceId: string | null | undefined): PlanId | null {
   if (!priceId) return null;
-  if (priceId === process.env["STRIPE_PRICE_PRO"]) return "pro";
-  if (priceId === process.env["STRIPE_PRICE_BUSINESS"]) return "business";
+  if (priceId === stripePricePro()) return "pro";
+  if (priceId === stripePriceBusiness()) return "business";
   return null;
 }
 
@@ -49,7 +54,6 @@ async function findCustomerId(stripe: Awaited<ReturnType<typeof getStripe>>, use
 
 async function resolvePlanFromStripeCustomer(stripe: Awaited<ReturnType<typeof getStripe>>, customerId: string): Promise<{ plan: PlanId; planStatus: string; subscriptionId: string | null }> {
   const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 15 });
-  // Only fully active/trialing subscriptions grant paid access. past_due/unpaid are fail-closed.
   const active = subs.data.find((s) => ["active", "trialing"].includes(s.status));
   if (!active) {
     const latest = subs.data.find((s) => ["past_due", "unpaid", "incomplete", "incomplete_expired"].includes(s.status));
@@ -67,8 +71,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" }).middlewa
   if (typeof input.origin !== "string" || !/^https?:\/\//.test(input.origin)) throw new Error("Origem inválida.");
   return { plan: input.plan as PaidPlan, origin: input.origin };
 }).handler(async ({ data, context }) => {
-  const priceId = data.plan === "pro" ? process.env["STRIPE_PRICE_PRO"] : process.env["STRIPE_PRICE_BUSINESS"];
-  if (!priceId) throw new Error("Falta o Price ID do plano no Vercel (STRIPE_PRICE_PRO / BUSINESS).");
+  const priceId = data.plan === "pro" ? stripePricePro() : stripePriceBusiness();
   const stripe = await getStripe(); const userId = context.userId; const supabase = context.supabase;
   const email = (context.claims as { email?: string } | undefined)?.email;
   const { data: profile } = await supabase.from("profiles").select("plan, plan_status, stripe_customer_id, stripe_subscription_id").eq("id", userId).maybeSingle();
