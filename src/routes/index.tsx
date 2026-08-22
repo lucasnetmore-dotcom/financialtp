@@ -12,16 +12,16 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Finance Flow AI — gestão financeira com insights inteligentes" },
+      { title: "Finance Flow — finanças, CRM e agenda num só lugar" },
       {
         name: "description",
         content:
-          "Controle entradas e saídas, sincronize PC e telemóvel, e receba insights de IA. Free, Pro €9,90 e Business €19,90.",
+          "Gestão financeira, CRM, agenda, clientes, serviços, relatórios e notificações inteligentes. Free, Pro €9,90 e Business €19,90.",
       },
-      { property: "og:title", content: "Finance Flow AI — gestão financeira inteligente" },
+      { property: "og:title", content: "Finance Flow — gestão completa do seu negócio" },
       {
         property: "og:description",
-        content: "Um só login, sincronização em tempo real e insights automáticos.",
+        content: "Finanças, clientes, agenda e gestão num único sistema, sincronizado em todos os dispositivos.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -49,13 +49,13 @@ function Landing() {
 
       <div className="mx-auto max-w-5xl">
         <section className="mx-auto max-w-2xl text-center animate-fade-up">
-          <p className="eyebrow">Para negócios locais e freelancers</p>
+          <p className="eyebrow">Para negócios locais, profissionais e freelancers</p>
           <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">
-            Finance <span className="gold-text">Flow AI</span>
+            Finance <span className="gold-text">Flow</span>
           </h1>
           <p className="mt-5 text-base text-muted-foreground sm:text-lg">
-            Entradas, saídas e meta mensal num só sítio — sincronizado no telemóvel e no PC, com
-            insights automáticos a partir dos seus dados reais.
+            Finanças, clientes, agenda e gestão do negócio num único sistema — sincronizado no
+            telemóvel e no PC, com relatórios e alertas inteligentes a partir dos seus dados reais.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button asChild size="lg">
@@ -78,9 +78,9 @@ function Landing() {
 
         <section className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            "Sincronização em tempo real",
-            "Insights de margem e meta",
-            "Exportação PDF, Excel e CSV",
+            "Finanças sincronizadas em tempo real",
+            "CRM + agenda profissional",
+            "Relatórios e exportações",
             "Notificações inteligentes",
           ].map((item) => (
             <div key={item} className="panel panel-lift px-4 py-4 text-sm">
@@ -93,7 +93,7 @@ function Landing() {
         <section className="mt-16" id="precos">
           <h2 className="text-center font-display text-2xl font-bold tracking-tight">Preços simples</h2>
           <p className="mx-auto mt-2 max-w-lg text-center text-sm text-muted-foreground">
-            Comece grátis. Faça upgrade quando precisar de lançamentos ilimitados.
+            Comece grátis e faça upgrade quando precisar de mais controlo, CRM e agenda profissional.
           </p>
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
             {PLANS.map((plan) => (
@@ -141,7 +141,7 @@ function Landing() {
             <div className="panel p-4">
               <dt className="font-semibold">Os meus dados estão seguros?</dt>
               <dd className="mt-1 text-muted-foreground">
-                Cada conta só vê os seus lançamentos. Pagamentos são processados pela Stripe — não
+                Cada conta só vê os seus dados. Pagamentos são processados pela Stripe — não
                 guardamos números de cartão. Pode apagar a conta nas definições (RGPD).
               </dd>
             </div>
