@@ -5,10 +5,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 type PaidPlan = "pro" | "business";
 type PlanId = "free" | "pro" | "business";
 
-const STRIPE_PRICE_PRO_DEFAULT = "price_1U7GZV1795BiguAehJ2XGO8i";
-const STRIPE_PRICE_BUSINESS_DEFAULT = "price_1U7Gaw1795BiguAedIdTlvqF";
-const stripePricePro = () => process.env["STRIPE_PRICE_PRO"] || STRIPE_PRICE_PRO_DEFAULT;
-const stripePriceBusiness = () => process.env["STRIPE_PRICE_BUSINESS"] || STRIPE_PRICE_BUSINESS_DEFAULT;
+// Current production Stripe recurring prices. Keep explicit so stale Vercel env vars cannot route checkout to retired products.
+const STRIPE_PRICE_PRO = "price_1U7GZV1795BiguAehJ2XGO8i";
+const STRIPE_PRICE_BUSINESS = "price_1U7Gaw1795BiguAedIdTlvqF";
 
 function getStripe() {
   const secretKey = process.env["STRIPE_SECRET_KEY"];
@@ -18,8 +17,8 @@ function getStripe() {
 
 function planFromPrice(priceId: string | null | undefined): PlanId | null {
   if (!priceId) return null;
-  if (priceId === stripePricePro()) return "pro";
-  if (priceId === stripePriceBusiness()) return "business";
+  if (priceId === STRIPE_PRICE_PRO) return "pro";
+  if (priceId === STRIPE_PRICE_BUSINESS) return "business";
   return null;
 }
 
@@ -71,7 +70,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" }).middlewa
   if (typeof input.origin !== "string" || !/^https?:\/\//.test(input.origin)) throw new Error("Origem inválida.");
   return { plan: input.plan as PaidPlan, origin: input.origin };
 }).handler(async ({ data, context }) => {
-  const priceId = data.plan === "pro" ? stripePricePro() : stripePriceBusiness();
+  const priceId = data.plan === "pro" ? STRIPE_PRICE_PRO : STRIPE_PRICE_BUSINESS;
   const stripe = await getStripe(); const userId = context.userId; const supabase = context.supabase;
   const email = (context.claims as { email?: string } | undefined)?.email;
   const { data: profile } = await supabase.from("profiles").select("plan, plan_status, stripe_customer_id, stripe_subscription_id").eq("id", userId).maybeSingle();
@@ -80,9 +79,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" }).middlewa
   const existing = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 15 });
   const hasPaidSubscription = existing.data.some((s) => ["active", "trialing", "past_due", "unpaid"].includes(s.status));
   if (hasPaidSubscription) throw new Error("Já existe uma subscrição associada a esta conta. Use “Gerir / cancelar” para alterar o plano.");
-  const session = await stripe.checkout.sessions.create({ mode: "subscription", customer: customerId, client_reference_id: userId, line_items: [{ price: priceId, quantity: 1 }], allow_promotion_codes: true, metadata: { user_id: userId, plan: data.plan }, subscription_data: { metadata: { user_id: userId, plan: data.plan } }, success_url: `${data.origin}/planos?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${data.origin}/planos?checkout=cancel` });
-  if (!session.url) throw new Error("Não foi possível iniciar o pagamento.");
-  return { url: session.url };
+  try {
+    const session = await stripe.checkout.sessions.create({ mode: "subscription", customer: customerId, client_reference_id: userId, line_items: [{ price: priceId, quantity: 1 }], allow_promotion_codes: true, metadata: { user_id: userId, plan: data.plan }, subscription_data: { metadata: { user_id: userId, plan: data.plan } }, success_url: `${data.origin}/planos?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${data.origin}/planos?checkout=cancel` });
+    if (!session.url) throw new Error("Não foi possível iniciar o pagamento.");
+    return { url: session.url };
+  } catch (error) {
+    console.error("Stripe checkout error", { plan: data.plan, priceId, message: error instanceof Error ? error.message : String(error) });
+    throw new Error(error instanceof Error ? `Stripe: ${error.message}` : "Não foi possível abrir o checkout da Stripe.");
+  }
 });
 
 export const createBillingPortalSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { origin: string }) => {
