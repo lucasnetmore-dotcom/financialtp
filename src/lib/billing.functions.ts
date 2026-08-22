@@ -59,9 +59,12 @@ async function resolvePlanFromStripeCustomer(stripe: Awaited<ReturnType<typeof g
     return { plan: "free", planStatus: latest?.status ?? "canceled", subscriptionId: null };
   }
   const priceId = active.items.data[0]?.price?.id;
-  const fromPrice = planFromPrice(priceId);
-  const fromMeta = active.metadata?.["plan"] as PlanId | undefined;
-  const plan = fromPrice ?? (fromMeta === "pro" || fromMeta === "business" ? fromMeta : null) ?? "pro";
+  const plan = planFromPrice(priceId);
+  // Fail closed: an active subscription with a retired/unknown Price ID must never unlock paid features.
+  if (!plan) {
+    console.error("Stripe subscription has unknown price", { customerId, subscriptionId: active.id, priceId });
+    return { plan: "free", planStatus: "unknown_price", subscriptionId: null };
+  }
   return { plan, planStatus: active.status, subscriptionId: active.id };
 }
 
@@ -111,12 +114,31 @@ export const confirmCheckoutSession = createServerFn({ method: "POST" }).middlew
   const metaUser = session.metadata?.["user_id"] ?? session.client_reference_id ?? null;
   if (metaUser && metaUser !== userId) throw new Error("Este pagamento não pertence à sua conta.");
   if (session.status !== "complete") throw new Error("O pagamento ainda não está concluído.");
-  let plan: PlanId | null = (session.metadata?.["plan"] as PlanId | undefined) ?? null; const subRaw = session.subscription; let subscriptionId: string | null = null; let planStatus = "active";
-  if (typeof subRaw === "string") { subscriptionId = subRaw; const sub = await stripe.subscriptions.retrieve(subRaw); plan = planFromPrice(sub.items.data[0]?.price.id) ?? plan; planStatus = sub.status; }
-  else if (subRaw && typeof subRaw === "object" && "id" in subRaw) { subscriptionId = subRaw.id; const priceId = "items" in subRaw && subRaw.items?.data?.[0]?.price?.id ? subRaw.items.data[0].price.id : null; plan = planFromPrice(priceId) ?? plan; planStatus = "status" in subRaw && typeof subRaw.status === "string" ? subRaw.status : "active"; }
-  if (!plan && session.line_items?.data?.[0]?.price) { const p = session.line_items.data[0].price; const priceId = typeof p === "string" ? p : p.id; plan = planFromPrice(priceId); }
-  if (!plan || plan === "free") { const m = session.metadata?.["plan"]; if (m === "pro" || m === "business") plan = m; }
-  if (!plan || plan === "free") throw new Error("Não foi possível identificar o plano pago.");
+
+  const subRaw = session.subscription;
+  let subscriptionId: string | null = null;
+  let planStatus = "active";
+  let plan: PlanId | null = null;
+
+  if (typeof subRaw === "string") {
+    subscriptionId = subRaw;
+    const sub = await stripe.subscriptions.retrieve(subRaw);
+    plan = planFromPrice(sub.items.data[0]?.price.id);
+    planStatus = sub.status;
+  } else if (subRaw && typeof subRaw === "object" && "id" in subRaw) {
+    subscriptionId = subRaw.id;
+    const priceId = "items" in subRaw && subRaw.items?.data?.[0]?.price?.id ? subRaw.items.data[0].price.id : null;
+    plan = planFromPrice(priceId);
+    planStatus = "status" in subRaw && typeof subRaw.status === "string" ? subRaw.status : "active";
+  }
+
+  if (!plan && session.line_items?.data?.[0]?.price) {
+    const p = session.line_items.data[0].price;
+    const priceId = typeof p === "string" ? p : p.id;
+    plan = planFromPrice(priceId);
+  }
+
+  if (!plan) throw new Error("O pagamento usa um preço que não pertence aos planos atuais.");
   if (!["active", "trialing"].includes(planStatus)) throw new Error("A subscrição ainda não está ativa.");
   const customerId = typeof session.customer === "string" ? session.customer : session.customer && typeof session.customer === "object" && "id" in session.customer ? (session.customer as { id: string }).id : undefined;
   const { persisted } = await tryPersistPlan(context.supabase, userId, { plan, plan_status: planStatus, stripe_subscription_id: subscriptionId, ...(customerId ? { stripe_customer_id: customerId } : {}) });
@@ -129,7 +151,7 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" }).mid
   const customerId = await findCustomerId(stripe, userId, email, profile?.stripe_customer_id);
   if (!customerId) return { plan: (profile?.plan as PlanId) ?? "free", synced: false as const, persisted: false as const };
   const resolved = await resolvePlanFromStripeCustomer(stripe, customerId);
-  const plan = resolved.plan === "pro" && profile?.plan === "business" ? "business" : resolved.plan;
+  const plan = resolved.plan;
   const { persisted } = await tryPersistPlan(supabase, userId, { plan, plan_status: resolved.planStatus, stripe_subscription_id: resolved.subscriptionId, stripe_customer_id: customerId });
   return { plan, synced: true as const, already: profile?.plan === plan, persisted };
 });
@@ -140,7 +162,7 @@ export const getEffectivePlan = createServerFn({ method: "GET" }).middleware([re
   const customerId = await findCustomerId(stripe, userId, email, profile?.stripe_customer_id);
   if (!customerId) return { plan: (profile?.plan as PlanId) ?? "free", source: "profile" as const };
   const resolved = await resolvePlanFromStripeCustomer(stripe, customerId);
-  const plan = resolved.plan === "pro" && profile?.plan === "business" ? "business" : resolved.plan;
+  const plan = resolved.plan;
   void tryPersistPlan(context.supabase, userId, { plan, plan_status: resolved.planStatus, stripe_subscription_id: resolved.subscriptionId, stripe_customer_id: customerId });
   return { plan, source: "stripe" as const };
 });
