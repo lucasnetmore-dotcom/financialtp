@@ -9,12 +9,15 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secretKey = process.env["STRIPE_SECRET_KEY"];
-        const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"];
+        const secretKey = process.env["STRIPE_SECRET_KEY"]?.trim();
+        const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"]?.trim();
 
+        // Billing access is resolved directly from Stripe on authenticated requests.
+        // The webhook is therefore an optional accelerator/cache synchronizer, not a
+        // single point of failure. If it is not configured, production billing still
+        // works through confirmCheckoutSession/getEffectivePlan/syncSubscriptionFromStripe.
         if (!secretKey || !webhookSecret) {
-          console.error("[stripe-webhook] missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET");
-          return new Response("Stripe not configured", { status: 500 });
+          return new Response(null, { status: 204 });
         }
 
         const signature = request.headers.get("stripe-signature");
@@ -38,11 +41,12 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
           return new Response("Invalid signature", { status: 401 });
         }
 
-        const { hasServiceRoleKey, supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        if (!hasServiceRoleKey()) {
-          console.error("[stripe-webhook] SUPABASE_SERVICE_ROLE_KEY not configured");
-          return new Response("Subscription persistence not configured", { status: 503 });
-        }
+        const { getSupabaseAdminOptional } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = getSupabaseAdminOptional();
+
+        // No service-role key: acknowledge a valid Stripe event. The next authenticated
+        // app request will read the subscription directly from Stripe and enforce it.
+        if (!supabaseAdmin) return new Response("ok");
 
         const planFromPrice = (priceId: string | null | undefined): PlanId | null => {
           if (priceId === STRIPE_PRICE_PRO) return "pro";
@@ -57,7 +61,7 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
           status: string,
           subscriptionId: string | null,
         ) => {
-          if (!userId && !customerId) throw new Error("Stripe event without identifiable user/customer");
+          if (!userId && !customerId) return;
           const patch = {
             plan,
             plan_status: status,
@@ -68,18 +72,17 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
             ? supabaseAdmin.from("profiles").update(patch).eq("id", userId)
             : supabaseAdmin.from("profiles").update(patch).eq("stripe_customer_id", customerId!);
           const { error } = await query;
-          if (error) throw new Error(`Could not persist subscription: ${error.message}`);
+          if (error) console.error("[stripe-webhook] profile cache update failed", error.message);
         };
 
         const resolveUserId = async (metaUserId: string | null | undefined, customerId: string | null) => {
           if (metaUserId) return metaUserId;
           if (!customerId) return null;
-          const { data, error } = await supabaseAdmin
+          const { data } = await supabaseAdmin
             .from("profiles")
             .select("id")
             .eq("stripe_customer_id", customerId)
             .maybeSingle();
-          if (error) throw new Error(`Could not resolve Stripe customer: ${error.message}`);
           return data?.id ?? null;
         };
 
@@ -96,22 +99,18 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
               customerId,
             );
 
-            if (!subscriptionId) {
-              console.error("[stripe-webhook] subscription checkout completed without subscription id", session.id);
-              return new Response("Missing subscription", { status: 400 });
-            }
+            if (!subscriptionId) return new Response("ok");
 
             const sub = await stripe.subscriptions.retrieve(subscriptionId);
             const plan = planFromPrice(sub.items.data[0]?.price.id);
             const paid = ["active", "trialing"].includes(sub.status);
-
-            if (paid && !plan) {
-              console.error("[stripe-webhook] active subscription with unknown price", sub.items.data[0]?.price.id);
-              await applyPlan(userId, customerId, "free", "unknown_price", null);
-              return new Response("Unknown subscription price", { status: 400 });
-            }
-
-            await applyPlan(userId, customerId, paid && plan ? plan : "free", sub.status, paid ? subscriptionId : null);
+            await applyPlan(
+              userId,
+              customerId,
+              paid && plan ? plan : "free",
+              paid && !plan ? "unknown_price" : sub.status,
+              paid && plan ? subscriptionId : null,
+            );
             return new Response("ok");
           }
 
@@ -121,14 +120,13 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
             const userId = await resolveUserId(sub.metadata?.["user_id"], customerId);
             const paid = ["active", "trialing"].includes(sub.status);
             const mappedPlan = planFromPrice(sub.items.data[0]?.price.id);
-
-            if (paid && !mappedPlan) {
-              console.error("[stripe-webhook] updated active subscription with unknown price", sub.items.data[0]?.price.id);
-              await applyPlan(userId, customerId, "free", "unknown_price", null);
-              return new Response("Unknown subscription price", { status: 400 });
-            }
-
-            await applyPlan(userId, customerId, paid && mappedPlan ? mappedPlan : "free", sub.status, paid ? sub.id : null);
+            await applyPlan(
+              userId,
+              customerId,
+              paid && mappedPlan ? mappedPlan : "free",
+              paid && !mappedPlan ? "unknown_price" : sub.status,
+              paid && mappedPlan ? sub.id : null,
+            );
             return new Response("ok");
           }
 
@@ -142,12 +140,14 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
 
           return new Response("ignored");
         } catch (error) {
-          console.error("[stripe-webhook] processing failed", {
+          // A valid Stripe event must not block billing access: Stripe remains the
+          // source of truth and authenticated reads repair stale profile cache.
+          console.error("[stripe-webhook] cache sync failed", {
             eventId: event.id,
             eventType: event.type,
             message: error instanceof Error ? error.message : String(error),
           });
-          return new Response("Webhook processing failed", { status: 500 });
+          return new Response("ok");
         }
       },
     },
