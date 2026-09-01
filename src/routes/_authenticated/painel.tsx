@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowDownRight,
+  CalendarRange,
   ArrowUpRight,
   BarChart3,
   DatabaseBackup,
@@ -348,7 +349,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                 size="sm"
                 className="h-8 gap-1.5 px-2.5"
                 onClick={() =>
-                  void exportPdf(entries, {
+                  void exportPdf(visible, {
                     company: profileQuery.data?.company_name ?? "Relatório financeiro",
                     currency: settingsQuery.data?.currency ?? "EUR",
                   })
@@ -361,7 +362,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                 variant="ghost"
                 size="sm"
                 className="h-8 gap-1.5 px-2.5"
-                onClick={() => void exportExcel(entries, settingsQuery.data?.currency ?? "EUR")}
+                onClick={() => void exportExcel(visible, settingsQuery.data?.currency ?? "EUR")}
               >
                 <FileSpreadsheet className="size-4" />
                 Excel
@@ -370,7 +371,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                 variant="ghost"
                 size="sm"
                 className="h-8 gap-1.5 px-2.5"
-                onClick={() => exportCsv(entries)}
+                onClick={() => exportCsv(visible)}
               >
                 <Download className="size-4" />
                 CSV
@@ -406,11 +407,11 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
               <section className="grid gap-4">
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <Metric label="Saldo atual" value={money(t.balance)} hint="Disponível em caixa" icon={Wallet} index={0} />
-                  <Metric label="Total de entradas" value={money(t.income)} hint={`${entries.filter((e) => e.type === "income").length} lançamentos`} tone="success" icon={ArrowUpRight} index={1} />
-                  <Metric label="Total de saídas" value={money(t.expense)} hint={`${entries.filter((e) => e.type === "expense").length} lançamentos`} tone="danger" icon={ArrowDownRight} index={2} />
+                  <Metric label="Total de entradas" value={money(t.income)} hint={`${visible.filter((e) => e.type === "income").length} lançamentos`} tone="success" icon={ArrowUpRight} index={1} />
+                  <Metric label="Total de saídas" value={money(t.expense)} hint={`${visible.filter((e) => e.type === "expense").length} lançamentos`} tone="danger" icon={ArrowDownRight} index={2} />
                   <Metric label="Lucro líquido" value={money(t.balance)} hint={`Hoje: ${money(today.balance)}`} tone={t.balance >= 0 ? "success" : "danger"} icon={TrendingUp} index={3} />
                 </div>
-                <AiInsights entries={entries} settings={settingsQuery.data ?? null} />
+                <AiInsights entries={visible} settings={settingsQuery.data ?? null} />
                 <div className="grid gap-4 lg:grid-cols-[1.45fr_0.85fr]">
                   <div className="panel panel-crown p-5 lg:p-6 animate-fade-up">
                     <div className="flex items-baseline justify-between gap-3">
@@ -419,7 +420,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                     </div>
                     <div className="mt-5 h-64">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={lastDays(entries)}>
+                        <AreaChart data={lastDays(visible)}>
                           <defs>
                             <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="var(--success)" stopOpacity={0.35} />
@@ -456,11 +457,11 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                     <GoalForm goal={goal} saving={saveSettings.isPending} onSave={(value) => saveSettings.mutate({ monthly_goal: value }, { onSuccess: () => toast.success("Meta mensal atualizada.") })} />
                   </div>
                 </div>
-                <RecordsTable entries={entries.slice(0, 5)} title="Últimos lançamentos" onEdit={openEdit} onDelete={(id) => deleteEntry.mutate(id)} />
+                <RecordsTable entries={visible.slice(0, 5)} title="Últimos lançamentos" onEdit={openEdit} onDelete={(id) => deleteEntry.mutate(id)} />
               </section>
             )}
-            {view === "records" && <RecordsView entries={entries} onEdit={openEdit} onDelete={(id) => deleteEntry.mutate(id)} />}
-            {view === "reports" && <ReportsView entries={entries} />}
+            {view === "records" && <RecordsView entries={visible} onEdit={openEdit} onDelete={(id) => deleteEntry.mutate(id)} />}
+            {view === "reports" && <ReportsView entries={visible} />}
             {view === "settings" && (
               <SettingsView
                 companyName={profileQuery.data?.company_name ?? ""}
