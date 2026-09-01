@@ -316,8 +316,30 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
             <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight lg:text-[2.1rem]">
               {VIEWS.find((v) => v.id === view)?.label}
             </h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              A ver <span className="font-semibold text-foreground">{periodLabel}</span>
+              {" · "}
+              {visible.length} lançamento{visible.length === 1 ? "" : "s"}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-card/60 px-2.5 py-1">
+              <CalendarRange className="size-4 text-primary" />
+              <select
+                aria-label="Período"
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                className="h-7 bg-transparent text-sm font-medium outline-none"
+              >
+                <option value="all">Todos os meses</option>
+                {monthOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {monthLabel(m)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <SyncBadge />
             <NotificationsBell entries={entries} settings={settingsQuery.data ?? null} />
             <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5">
