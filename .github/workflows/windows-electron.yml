@@ -1,0 +1,40 @@
+name: Build Finance Flow AI Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'electron-app/**'
+      - '.github/workflows/windows-electron.yml'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Electron packager
+        run: npm install --no-save electron@43.3.0 @electron/packager@20.2.0
+
+      - name: Build Windows executable folder
+        shell: pwsh
+        run: |
+          npx electron-packager electron-app "Finance Flow AI" --platform=win32 --arch=x64 --out=release --overwrite --asar --prune=false
+          $folder = Get-ChildItem release -Directory | Select-Object -First 1
+          Compress-Archive -Path "$($folder.FullName)\*" -DestinationPath "Finance-Flow-AI-Windows-x64.zip" -Force
+
+      - name: Upload Windows ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Finance-Flow-AI-Windows-x64
+          path: Finance-Flow-AI-Windows-x64.zip
+          retention-days: 30
