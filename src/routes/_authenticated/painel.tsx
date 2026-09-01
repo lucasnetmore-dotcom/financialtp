@@ -153,10 +153,26 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   const restoreBackup = useRestoreBackup(userId);
 
   const entries = entriesQuery.data ?? [];
+
+  // --- Separação por mês (apenas filtragem, nenhum dado é alterado) ---
+  const currentMonth = monthISO();
+  const [period, setPeriod] = useState<string>(currentMonth);
+  const monthOptions = useMemo(() => {
+    const set = new Set<string>(entries.map((e) => e.entry_date.slice(0, 7)));
+    set.add(currentMonth);
+    return [...set].filter(Boolean).sort((a, b) => b.localeCompare(a));
+  }, [entries, currentMonth]);
+  const visible = useMemo(
+    () => (period === "all" ? entries : entries.filter((e) => e.entry_date.slice(0, 7) === period)),
+    [entries, period],
+  );
+  const periodLabel = period === "all" ? "Todos os meses" : monthLabel(period);
+  const goalMonth = period === "all" ? currentMonth : period;
+
   const goal = Number(settingsQuery.data?.monthly_goal ?? 0);
-  const t = totals(entries);
-  const today = totals(entries.filter((e) => e.entry_date === todayISO()));
-  const monthIncome = totals(entries.filter((e) => e.entry_date.slice(0, 7) === monthISO())).income;
+  const t = totals(visible);
+  const today = totals(visible.filter((e) => e.entry_date === todayISO()));
+  const monthIncome = totals(entries.filter((e) => e.entry_date.slice(0, 7) === goalMonth)).income;
   const pct = goal ? Math.min(100, (monthIncome / goal) * 100) : 0;
   const planAccess = getPlanAccess(profileQuery.data, entries, effectivePlan);
 
