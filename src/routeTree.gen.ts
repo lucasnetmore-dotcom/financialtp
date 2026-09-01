@@ -12,9 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
+import { Route as PoliticaDePrivacidadeRouteImport } from './routes/politica-de-privacidade'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as TermosRouteImport } from './routes/termos'
+import { Route as TermosDeUtilizacaoRouteImport } from './routes/termos-de-utilizacao'
+import { Route as AuthenticatedComandoRouteImport } from './routes/_authenticated/comando'
+import { Route as AuthenticatedCrmRouteImport } from './routes/_authenticated/crm'
+import { Route as AuthenticatedGestaoRouteImport } from './routes/_authenticated/gestao'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedPlanosRouteImport } from './routes/_authenticated/planos'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
@@ -33,9 +38,9 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
-  id: '/redefinir-senha',
-  path: '/redefinir-senha',
+const PoliticaDePrivacidadeRoute = PoliticaDePrivacidadeRouteImport.update({
+  id: '/politica-de-privacidade',
+  path: '/politica-de-privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
@@ -43,10 +48,35 @@ const PrivacidadeRoute = PrivacidadeRouteImport.update({
   path: '/privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermosRoute = TermosRouteImport.update({
   id: '/termos',
   path: '/termos',
   getParentRoute: () => rootRouteImport,
+} as any)
+const TermosDeUtilizacaoRoute = TermosDeUtilizacaoRouteImport.update({
+  id: '/termos-de-utilizacao',
+  path: '/termos-de-utilizacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedComandoRoute = AuthenticatedComandoRouteImport.update({
+  id: '/comando',
+  path: '/comando',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCrmRoute = AuthenticatedCrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGestaoRoute = AuthenticatedGestaoRouteImport.update({
+  id: '/gestao',
+  path: '/gestao',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
   id: '/painel',
@@ -67,9 +97,14 @@ const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/privacidade': typeof PrivacidadeRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/termos-de-utilizacao': typeof TermosDeUtilizacaoRoute
+  '/comando': typeof AuthenticatedComandoRoute
+  '/crm': typeof AuthenticatedCrmRoute
+  '/gestao': typeof AuthenticatedGestaoRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/planos': typeof AuthenticatedPlanosRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
@@ -77,9 +112,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/privacidade': typeof PrivacidadeRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/termos-de-utilizacao': typeof TermosDeUtilizacaoRoute
+  '/comando': typeof AuthenticatedComandoRoute
+  '/crm': typeof AuthenticatedCrmRoute
+  '/gestao': typeof AuthenticatedGestaoRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/planos': typeof AuthenticatedPlanosRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
@@ -89,9 +129,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/privacidade': typeof PrivacidadeRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/termos-de-utilizacao': typeof TermosDeUtilizacaoRoute
+  '/_authenticated/comando': typeof AuthenticatedComandoRoute
+  '/_authenticated/crm': typeof AuthenticatedCrmRoute
+  '/_authenticated/gestao': typeof AuthenticatedGestaoRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/planos': typeof AuthenticatedPlanosRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
@@ -101,9 +146,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/redefinir-senha'
+    | '/politica-de-privacidade'
     | '/privacidade'
+    | '/redefinir-senha'
     | '/termos'
+    | '/termos-de-utilizacao'
+    | '/comando'
+    | '/crm'
+    | '/gestao'
     | '/painel'
     | '/planos'
     | '/api/public/stripe-webhook'
@@ -111,9 +161,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/redefinir-senha'
+    | '/politica-de-privacidade'
     | '/privacidade'
+    | '/redefinir-senha'
     | '/termos'
+    | '/termos-de-utilizacao'
+    | '/comando'
+    | '/crm'
+    | '/gestao'
     | '/painel'
     | '/planos'
     | '/api/public/stripe-webhook'
@@ -122,9 +177,14 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
-    | '/redefinir-senha'
+    | '/politica-de-privacidade'
     | '/privacidade'
+    | '/redefinir-senha'
     | '/termos'
+    | '/termos-de-utilizacao'
+    | '/_authenticated/comando'
+    | '/_authenticated/crm'
+    | '/_authenticated/gestao'
     | '/_authenticated/painel'
     | '/_authenticated/planos'
     | '/api/public/stripe-webhook'
@@ -134,9 +194,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  PoliticaDePrivacidadeRoute: typeof PoliticaDePrivacidadeRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
+  TermosDeUtilizacaoRoute: typeof TermosDeUtilizacaoRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
 }
 
@@ -163,11 +225,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/redefinir-senha': {
-      id: '/redefinir-senha'
-      path: '/redefinir-senha'
-      fullPath: '/redefinir-senha'
-      preLoaderRoute: typeof RedefinirSenhaRouteImport
+    '/politica-de-privacidade': {
+      id: '/politica-de-privacidade'
+      path: '/politica-de-privacidade'
+      fullPath: '/politica-de-privacidade'
+      preLoaderRoute: typeof PoliticaDePrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacidade': {
@@ -177,12 +239,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/termos': {
       id: '/termos'
       path: '/termos'
       fullPath: '/termos'
       preLoaderRoute: typeof TermosRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/termos-de-utilizacao': {
+      id: '/termos-de-utilizacao'
+      path: '/termos-de-utilizacao'
+      fullPath: '/termos-de-utilizacao'
+      preLoaderRoute: typeof TermosDeUtilizacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/comando': {
+      id: '/_authenticated/comando'
+      path: '/comando'
+      fullPath: '/comando'
+      preLoaderRoute: typeof AuthenticatedComandoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/crm': {
+      id: '/_authenticated/crm'
+      path: '/crm'
+      fullPath: '/crm'
+      preLoaderRoute: typeof AuthenticatedCrmRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gestao': {
+      id: '/_authenticated/gestao'
+      path: '/gestao'
+      fullPath: '/gestao'
+      preLoaderRoute: typeof AuthenticatedGestaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/painel': {
       id: '/_authenticated/painel'
@@ -209,11 +306,17 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedComandoRoute: typeof AuthenticatedComandoRoute
+  AuthenticatedCrmRoute: typeof AuthenticatedCrmRoute
+  AuthenticatedGestaoRoute: typeof AuthenticatedGestaoRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPlanosRoute: typeof AuthenticatedPlanosRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedComandoRoute: AuthenticatedComandoRoute,
+  AuthenticatedCrmRoute: AuthenticatedCrmRoute,
+  AuthenticatedGestaoRoute: AuthenticatedGestaoRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPlanosRoute: AuthenticatedPlanosRoute,
 }
@@ -225,11 +328,23 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  RedefinirSenhaRoute: RedefinirSenhaRoute,
+  PoliticaDePrivacidadeRoute: PoliticaDePrivacidadeRoute,
   PrivacidadeRoute: PrivacidadeRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
+  TermosDeUtilizacaoRoute: TermosDeUtilizacaoRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
