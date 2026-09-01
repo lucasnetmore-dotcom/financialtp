@@ -10,7 +10,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#0d0b07',
-    title: 'Prosper Finanças Premium',
+    title: 'Finance Flow AI',
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
