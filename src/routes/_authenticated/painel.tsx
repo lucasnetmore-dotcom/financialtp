@@ -135,6 +135,17 @@ function FullPageLoader() {
   );
 }
 
+function monthLabel(month: string) {
+  const [y, m] = month.split("-");
+  const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("pt-PT", {
+    month: "long",
+    year: "numeric",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1).replace(" de ", " ");
+}
+
+
+
 function Painel({ userId, email }: { userId: string | null; email: string | null }) {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewId>("dashboard");
