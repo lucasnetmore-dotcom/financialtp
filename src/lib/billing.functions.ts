@@ -7,6 +7,8 @@ type PlanId = "free" | "pro" | "business";
 
 const STRIPE_PRICE_PRO = "price_1U7GZV1795BiguAehJ2XGO8i";
 const STRIPE_PRICE_BUSINESS = "price_1U7Gaw1795BiguAedIdTlvqF";
+// Legacy Business price used by existing production subscriptions before the current Price ID was created.
+const LEGACY_STRIPE_PRICE_BUSINESS = "price_1U3yB81795BiguAed1AG9JFh";
 
 function getStripe() {
   const secretKey = process.env["STRIPE_SECRET_KEY"];
@@ -17,7 +19,7 @@ function getStripe() {
 function planFromPrice(priceId: string | null | undefined): PlanId | null {
   if (!priceId) return null;
   if (priceId === STRIPE_PRICE_PRO) return "pro";
-  if (priceId === STRIPE_PRICE_BUSINESS) return "business";
+  if (priceId === STRIPE_PRICE_BUSINESS || priceId === LEGACY_STRIPE_PRICE_BUSINESS) return "business";
   return null;
 }
 
@@ -51,14 +53,12 @@ async function customerHasBlockingSubscription(stripe: Awaited<ReturnType<typeof
 }
 
 async function findCustomerId(stripe: Awaited<ReturnType<typeof getStripe>>, userId: string, email: string | undefined, profileCustomerId: string | null | undefined): Promise<string | null> {
-  // Prefer a stored customer only when it is still the billing customer that owns the subscription.
   if (profileCustomerId) {
     try {
       if (await customerHasBlockingSubscription(stripe, profileCustomerId)) return profileCustomerId;
     } catch {}
   }
 
-  // A metadata-linked customer is stronger than an email-only match.
   try {
     const byMeta = await stripe.customers.search({ query: `metadata["user_id"]:"${userId}"`, limit: 10 });
     for (const customer of byMeta.data) {
@@ -67,9 +67,6 @@ async function findCustomerId(stripe: Awaited<ReturnType<typeof getStripe>>, use
     if (byMeta.data[0]?.id && !email) return byMeta.data[0].id;
   } catch {}
 
-  // Stripe can contain duplicate Customer objects for the same email. Pick the one that actually
-  // owns a live/delinquent subscription, otherwise Checkout may say a subscription exists while
-  // our app incorrectly reports Free because it inspected a different Customer object.
   if (email) {
     const list = await stripe.customers.list({ email, limit: 20 });
     for (const customer of list.data) {
@@ -126,8 +123,6 @@ export const createCheckoutSession = createServerFn({ method: "POST" }).middlewa
       await tryPersistPlan(supabase, userId, { plan: "free", plan_status: blocking.status, stripe_subscription_id: blocking.id, stripe_customer_id: customerId });
     }
 
-    // Never dead-end a Free-looking account. Delinquent/paused subscriptions must be repaired or
-    // cancelled in Stripe before a new Checkout can be created. Send the user straight to Billing Portal.
     const portal = await stripe.billingPortal.sessions.create({ customer: customerId, return_url: `${data.origin}/planos` });
     if (!portal.url) throw new Error("Existe uma subscrição associada, mas não foi possível abrir a gestão da subscrição.");
     return { url: portal.url };
