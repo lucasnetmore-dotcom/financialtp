@@ -59,7 +59,7 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
   const set = <K extends keyof EntryInput>(key: K, value: EntryInput[K]) => setForm((f) => ({ ...f, [key]: value }));
   const selectedClient = clients.find((client) => client.name.trim().toLowerCase() === form.client.trim().toLowerCase());
 
-  const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); // matches combining marks -́ to ͯ
   const query = normalize(clientQuery.trim());
   const filteredClients = query
     ? clients.filter((client) =>
