@@ -175,7 +175,16 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
           <div className="grid gap-1.5"><Label>Tipo</Label><select className={selectClass} value={form.type} onChange={(e) => set("type", e.target.value as Entry["type"])}><option value="income">Entrada</option><option value="expense">Saída</option></select></div>
           <div className="grid gap-1.5"><Label>Valor (€)</Label><Input type="number" step="0.01" min="0" required value={form.value || ""} onChange={(e) => set("value", Number(e.target.value))} /></div>
           <div className="grid gap-1.5"><Label>Data</Label><Input type="date" required value={form.entry_date} onChange={(e) => set("entry_date", e.target.value)} /></div>
-          <div className="grid gap-1.5"><Label>Categoria</Label><Input placeholder="Vendas, Rendas, Salários…" value={form.category} onChange={(e) => set("category", e.target.value)} /></div>
+          <div className="grid gap-1.5">
+            <Label>Categoria</Label>
+            <Input list="entry-categories" placeholder="Vendas, SINAL, Rendas, Salários…" value={form.category} onChange={(e) => set("category", e.target.value)} />
+            <datalist id="entry-categories">
+              <option value="SINAL" />
+            </datalist>
+            {form.type === "income" && normalizeSearch(form.category) === "sinal" && (
+              <p className="text-xs text-muted-foreground">O sinal entra no caixa, mas não conta como um novo atendimento no cálculo do ticket médio.</p>
+            )}
+          </div>
           <div className="grid gap-1.5 sm:col-span-2"><Label>Descrição</Label><Input required value={form.description} onChange={(e) => set("description", e.target.value)} /></div>
           <div className="grid gap-1.5"><Label>Pagamento</Label><select className={selectClass} value={form.payment} onChange={(e) => set("payment", e.target.value)}><option value="">—</option>{PAYMENTS.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
           <div className="sm:col-span-2 rounded-2xl border border-primary/20 bg-primary/5 p-4">
