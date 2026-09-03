@@ -22,7 +22,7 @@ const selectClass = "h-10 w-full rounded-md border border-input bg-background px
 type Client = { id: string; name: string; email: string | null; phone: string | null; nif: string | null };
 
 export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmit }: {
-  open: boolean; entry: Entry | null; preset?: "withdrawal"; saving: boolean;
+  open: boolean; entry: Entry | null; preset?: "withdrawal" | undefined; saving: boolean;
   onOpenChange: (open: boolean) => void; onSubmit: (input: EntryInput) => void;
 }) {
   const [form, setForm] = useState<EntryInput>(emptyForm());
