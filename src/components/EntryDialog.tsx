@@ -31,6 +31,9 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", nif: "" });
   const [creatingClient, setCreatingClient] = useState(false);
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientListOpen, setClientListOpen] = useState(false);
+  const [clientActive, setClientActive] = useState(0);
 
   async function loadClients() {
     setClientLoading(true);
@@ -47,11 +50,38 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
       category: entry.category, description: entry.description, payment: entry.payment,
       client: entry.client, notes: entry.notes, baseUpdatedAt: entry.updated_at,
     } : emptyForm(preset));
+    setClientQuery(entry?.client ?? "");
+    setClientListOpen(false);
+    setClientActive(0);
     void loadClients();
   }, [open, entry, preset]);
 
   const set = <K extends keyof EntryInput>(key: K, value: EntryInput[K]) => setForm((f) => ({ ...f, [key]: value }));
   const selectedClient = clients.find((client) => client.name.trim().toLowerCase() === form.client.trim().toLowerCase());
+
+  const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const query = normalize(clientQuery.trim());
+  const filteredClients = query
+    ? clients.filter((client) =>
+        normalize(client.name).includes(query) ||
+        (client.phone ?? "").toLowerCase().includes(query) ||
+        (client.nif ?? "").toLowerCase().includes(query) ||
+        (client.email ?? "").toLowerCase().includes(query))
+    : clients;
+
+  function pickClient(client: Client) {
+    set("client", client.name);
+    setClientQuery(client.name);
+    setClientListOpen(false);
+  }
+
+  function onClientKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!clientListOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) { setClientListOpen(true); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setClientActive((i) => Math.min(i + 1, filteredClients.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setClientActive((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter" && clientListOpen && filteredClients[clientActive]) { e.preventDefault(); pickClient(filteredClients[clientActive]); }
+    else if (e.key === "Escape") { setClientListOpen(false); }
+  }
 
   function openNewClient() {
     onOpenChange(false);
