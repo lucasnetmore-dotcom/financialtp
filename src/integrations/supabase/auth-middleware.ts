@@ -94,17 +94,20 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       },
     });
 
+    type AuthClaims = { sub: string; email: string | undefined };
+
     // Preferir getUser (validação no Auth API) — mais fiável que só parse local
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     if (!userError && userData?.user?.id) {
+      const claims: AuthClaims = {
+        sub: userData.user.id,
+        email: userData.user.email,
+      };
       return next({
         context: {
           supabase,
           userId: userData.user.id,
-          claims: {
-            sub: userData.user.id,
-            email: userData.user.email,
-          },
+          claims,
         },
       });
     }
@@ -118,11 +121,15 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       );
     }
 
+    const claims: AuthClaims = {
+      sub: data.claims.sub as string,
+      email: (data.claims as { email?: string }).email,
+    };
     return next({
       context: {
         supabase,
         userId: data.claims.sub as string,
-        claims: data.claims,
+        claims,
       },
     });
   },

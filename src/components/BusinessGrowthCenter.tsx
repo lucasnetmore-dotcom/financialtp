@@ -102,7 +102,7 @@ export function BusinessGrowthCenter({ userId, entries, onFinanceChanged }: Prop
     return { upcoming, forecast, topServices, atRisk, topClients, pendingReceipts, avgTicket, recurrence };
   }, [clients, appointments, entries]);
 
-  async function registerReceipt(item: { appointment: Appointment; client?: Client; price: number }) {
+  async function registerReceipt(item: { appointment: Appointment; client?: Client | undefined; price: number }) {
     if (!userId || !item.client || paying) return;
     setPaying(item.appointment.id);
     const payload = {
