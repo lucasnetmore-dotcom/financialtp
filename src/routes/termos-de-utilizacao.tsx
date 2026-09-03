@@ -40,7 +40,7 @@ function TermsPage() {
         </div>
 
         <div className="mt-8 border-t pt-5">
-          <Link to="/auth" className="text-sm font-semibold text-primary hover:underline">Voltar para entrar</Link>
+          <Link to="/auth" search={{ modo: "entrar" }} className="text-sm font-semibold text-primary hover:underline">Voltar para entrar</Link>
         </div>
       </article>
     </main>
