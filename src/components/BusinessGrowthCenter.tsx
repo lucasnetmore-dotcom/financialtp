@@ -22,6 +22,7 @@ type Props = { userId: string | null; entries: Entry[]; onFinanceChanged?: () =>
 const eur = (n: number) => new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
 const daysBetween = (a: Date, b: Date) => Math.floor((a.getTime() - b.getTime()) / 86400000);
 const dateOnly = (v: string) => v.slice(0, 10);
+const isDeposit = (e: Entry) => e.type === "income" && (e.category || "").trim().toLowerCase() === "sinal";
 
 export function BusinessGrowthCenter({ userId, entries, onFinanceChanged }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
@@ -95,11 +96,15 @@ export function BusinessGrowthCenter({ userId, entries, onFinanceChanged }: Prop
       .slice(0, 10);
 
     const totalCustomerRevenue = [...clientSpend.values()].reduce((s, v) => s + v, 0);
-    const avgTicket = incomeEntries.length ? totalCustomerRevenue / incomeEntries.length : 0;
+    // SINAL is real revenue and stays in the numerator, but it is not a separate service/ticket.
+    // Example: €50 SINAL + €50 final payment = €100 revenue / 1 completed ticket = €100 average ticket.
+    const completedTicketEntries = incomeEntries.filter((e) => !isDeposit(e));
+    const avgTicket = completedTicketEntries.length ? totalCustomerRevenue / completedTicketEntries.length : 0;
+    const openDeposits = incomeEntries.filter(isDeposit).length;
     const recurring = clients.filter((c) => completed.filter((a) => a.client_id === c.id).length >= 2).length;
     const recurrence = clients.length ? recurring / clients.length : 0;
 
-    return { upcoming, forecast, topServices, atRisk, topClients, pendingReceipts, avgTicket, recurrence };
+    return { upcoming, forecast, topServices, atRisk, topClients, pendingReceipts, avgTicket, openDeposits, recurrence };
   }, [clients, appointments, entries]);
 
   async function registerReceipt(item: { appointment: Appointment; client?: Client; price: number }) {
@@ -136,7 +141,7 @@ export function BusinessGrowthCenter({ userId, entries, onFinanceChanged }: Prop
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Metric icon={CalendarClock} label="Receita prevista 30 dias" value={eur(data.forecast)} hint={`${data.upcoming.length} marcações futuras`} />
-      <Metric icon={CircleDollarSign} label="Ticket médio" value={eur(data.avgTicket)} hint="Com base nas entradas de clientes" />
+      <Metric icon={CircleDollarSign} label="Ticket médio" value={eur(data.avgTicket)} hint={data.openDeposits ? `Sinais incluídos no valor · ${data.openDeposits} sinal(is) sem contar como novo ticket` : "Sinais entram no valor sem criar um novo ticket"} />
       <Metric icon={UserRoundCheck} label="Recorrência" value={`${Math.round(data.recurrence * 100)}%`} hint="Clientes com 2+ atendimentos" />
       <Metric icon={AlertTriangle} label="Clientes em risco" value={String(data.atRisk.length)} hint="Sem atendimento há 60+ dias" />
     </div>
