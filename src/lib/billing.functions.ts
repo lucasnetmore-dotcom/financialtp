@@ -5,7 +5,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 type PaidPlan = "pro" | "business";
 type PlanId = "free" | "pro" | "business";
 
-// Current production Stripe recurring prices. Keep explicit so stale Vercel env vars cannot route checkout to retired products.
 const STRIPE_PRICE_PRO = "price_1U7GZV1795BiguAehJ2XGO8i";
 const STRIPE_PRICE_BUSINESS = "price_1U7Gaw1795BiguAedIdTlvqF";
 
@@ -44,23 +43,56 @@ async function tryPersistPlan(userClient: SupabaseLike, userId: string, patch: {
   return { persisted: false };
 }
 
+const BLOCKING_SUB_STATUSES = ["active", "trialing", "past_due", "unpaid", "paused"] as const;
+
+async function customerHasBlockingSubscription(stripe: Awaited<ReturnType<typeof getStripe>>, customerId: string) {
+  const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20 });
+  return subs.data.some((s) => BLOCKING_SUB_STATUSES.includes(s.status as (typeof BLOCKING_SUB_STATUSES)[number]));
+}
+
 async function findCustomerId(stripe: Awaited<ReturnType<typeof getStripe>>, userId: string, email: string | undefined, profileCustomerId: string | null | undefined): Promise<string | null> {
-  if (profileCustomerId) return profileCustomerId;
-  try { const byMeta = await stripe.customers.search({ query: `metadata["user_id"]:"${userId}"`, limit: 1 }); if (byMeta.data[0]?.id) return byMeta.data[0].id; } catch {}
-  if (email) { const list = await stripe.customers.list({ email, limit: 5 }); if (list.data[0]?.id) return list.data[0].id; }
-  return null;
+  // Prefer a stored customer only when it is still the billing customer that owns the subscription.
+  if (profileCustomerId) {
+    try {
+      if (await customerHasBlockingSubscription(stripe, profileCustomerId)) return profileCustomerId;
+    } catch {}
+  }
+
+  // A metadata-linked customer is stronger than an email-only match.
+  try {
+    const byMeta = await stripe.customers.search({ query: `metadata["user_id"]:"${userId}"`, limit: 10 });
+    for (const customer of byMeta.data) {
+      if (await customerHasBlockingSubscription(stripe, customer.id)) return customer.id;
+    }
+    if (byMeta.data[0]?.id && !email) return byMeta.data[0].id;
+  } catch {}
+
+  // Stripe can contain duplicate Customer objects for the same email. Pick the one that actually
+  // owns a live/delinquent subscription, otherwise Checkout may say a subscription exists while
+  // our app incorrectly reports Free because it inspected a different Customer object.
+  if (email) {
+    const list = await stripe.customers.list({ email, limit: 20 });
+    for (const customer of list.data) {
+      try {
+        if (await customerHasBlockingSubscription(stripe, customer.id)) return customer.id;
+      } catch {}
+    }
+    if (profileCustomerId && list.data.some((c) => c.id === profileCustomerId)) return profileCustomerId;
+    if (list.data[0]?.id) return list.data[0].id;
+  }
+
+  return profileCustomerId ?? null;
 }
 
 async function resolvePlanFromStripeCustomer(stripe: Awaited<ReturnType<typeof getStripe>>, customerId: string): Promise<{ plan: PlanId; planStatus: string; subscriptionId: string | null }> {
-  const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 15 });
+  const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20 });
   const active = subs.data.find((s) => ["active", "trialing"].includes(s.status));
   if (!active) {
-    const latest = subs.data.find((s) => ["past_due", "unpaid", "incomplete", "incomplete_expired"].includes(s.status));
-    return { plan: "free", planStatus: latest?.status ?? "canceled", subscriptionId: null };
+    const latest = subs.data.find((s) => ["past_due", "unpaid", "paused", "incomplete", "incomplete_expired"].includes(s.status));
+    return { plan: "free", planStatus: latest?.status ?? "canceled", subscriptionId: latest?.id ?? null };
   }
   const priceId = active.items.data[0]?.price?.id;
   const plan = planFromPrice(priceId);
-  // Fail closed: an active subscription with a retired/unknown Price ID must never unlock paid features.
   if (!plan) {
     console.error("Stripe subscription has unknown price", { customerId, subscriptionId: active.id, priceId });
     return { plan: "free", planStatus: "unknown_price", subscriptionId: null };
@@ -78,10 +110,29 @@ export const createCheckoutSession = createServerFn({ method: "POST" }).middlewa
   const email = (context.claims as { email?: string } | undefined)?.email;
   const { data: profile } = await supabase.from("profiles").select("plan, plan_status, stripe_customer_id, stripe_subscription_id").eq("id", userId).maybeSingle();
   let customerId = await findCustomerId(stripe, userId, email, profile?.stripe_customer_id);
-  if (!customerId) { const customer = await stripe.customers.create({ ...(email ? { email } : {}), metadata: { user_id: userId } }); customerId = customer.id; await tryPersistPlan(supabase, userId, { plan: (profile?.plan as PlanId) ?? "free", plan_status: "free", stripe_subscription_id: null, stripe_customer_id: customerId }); }
-  const existing = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 15 });
-  const hasPaidSubscription = existing.data.some((s) => ["active", "trialing", "past_due", "unpaid"].includes(s.status));
-  if (hasPaidSubscription) throw new Error("Já existe uma subscrição associada a esta conta. Use “Gerir / cancelar” para alterar o plano.");
+  if (!customerId) {
+    const customer = await stripe.customers.create({ ...(email ? { email } : {}), metadata: { user_id: userId } });
+    customerId = customer.id;
+    await tryPersistPlan(supabase, userId, { plan: (profile?.plan as PlanId) ?? "free", plan_status: "free", stripe_subscription_id: null, stripe_customer_id: customerId });
+  }
+
+  const existing = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20 });
+  const blocking = existing.data.find((s) => BLOCKING_SUB_STATUSES.includes(s.status as (typeof BLOCKING_SUB_STATUSES)[number]));
+  if (blocking) {
+    const currentPlan = planFromPrice(blocking.items.data[0]?.price?.id);
+    if (["active", "trialing"].includes(blocking.status) && currentPlan) {
+      await tryPersistPlan(supabase, userId, { plan: currentPlan, plan_status: blocking.status, stripe_subscription_id: blocking.id, stripe_customer_id: customerId });
+    } else {
+      await tryPersistPlan(supabase, userId, { plan: "free", plan_status: blocking.status, stripe_subscription_id: blocking.id, stripe_customer_id: customerId });
+    }
+
+    // Never dead-end a Free-looking account. Delinquent/paused subscriptions must be repaired or
+    // cancelled in Stripe before a new Checkout can be created. Send the user straight to Billing Portal.
+    const portal = await stripe.billingPortal.sessions.create({ customer: customerId, return_url: `${data.origin}/planos` });
+    if (!portal.url) throw new Error("Existe uma subscrição associada, mas não foi possível abrir a gestão da subscrição.");
+    return { url: portal.url };
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({ mode: "subscription", customer: customerId, client_reference_id: userId, line_items: [{ price: priceId, quantity: 1 }], allow_promotion_codes: true, metadata: { user_id: userId, plan: data.plan }, subscription_data: { metadata: { user_id: userId, plan: data.plan } }, success_url: `${data.origin}/planos?checkout=success&session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${data.origin}/planos?checkout=cancel` });
     if (!session.url) throw new Error("Não foi possível iniciar o pagamento.");
