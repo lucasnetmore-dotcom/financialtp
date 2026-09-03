@@ -150,8 +150,45 @@ export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmi
           <div className="grid gap-1.5"><Label>Pagamento</Label><select className={selectClass} value={form.payment} onChange={(e) => set("payment", e.target.value)}><option value="">—</option>{PAYMENTS.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
           <div className="sm:col-span-2 rounded-2xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><Label>Cliente</Label><p className="mt-1 text-xs text-muted-foreground">O lançamento fica associado à ficha do cliente e entra no histórico de gastos.</p></div><Link to="/crm" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"><Users className="size-3.5" /> Gerir clientes</Link></div>
-            <div className="mt-3 flex gap-2"><select className={selectClass} value={selectedClient?.id ?? ""} disabled={clientLoading} onChange={(e) => { const client = clients.find((item) => item.id === e.target.value); set("client", client?.name ?? ""); }}><option value="">{clientLoading ? "A carregar clientes…" : "Selecione um cliente…"}</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.nif ? ` · ${client.nif}` : ""}</option>)}</select><Button type="button" variant="outline" onClick={openNewClient}><UserPlus className="size-4" /><span className="hidden sm:inline">Novo</span></Button></div>
-            {selectedClient && <p className="mt-2 text-xs text-muted-foreground">Ficha selecionada: <strong className="text-foreground">{selectedClient.name}</strong>{selectedClient.email ? ` · ${selectedClient.email}` : ""}</p>}
+            <div className="mt-3 flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  placeholder={clientLoading ? "A carregar clientes…" : "Pesquisar cliente por nome, telefone, NIF ou email…"}
+                  value={clientQuery}
+                  disabled={clientLoading}
+                  onFocus={() => { setClientListOpen(true); setClientActive(0); }}
+                  onBlur={() => setTimeout(() => setClientListOpen(false), 120)}
+                  onChange={(e) => { setClientQuery(e.target.value); setClientListOpen(true); setClientActive(0); }}
+                  onKeyDown={onClientKeyDown}
+                />
+                {clientListOpen && !clientLoading && (
+                  <ul className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-lg" role="listbox">
+                    {filteredClients.length === 0 && (
+                      <li className="px-3 py-2 text-sm text-muted-foreground">
+                        Nenhum cliente encontrado para “{clientQuery}”. Use o botão <strong className="text-foreground">Novo</strong> para criar a ficha.
+                      </li>
+                    )}
+                    {filteredClients.map((client, index) => (
+                      <li key={client.id} role="option" aria-selected={client.id === selectedClient?.id}>
+                        <button
+                          type="button"
+                          className={`w-full rounded-sm px-3 py-2 text-left text-sm transition-colors ${index === clientActive ? "bg-accent text-accent-foreground" : "hover:bg-accent/60"}`}
+                          onMouseDown={(e) => { e.preventDefault(); pickClient(client); }}
+                          onMouseEnter={() => setClientActive(index)}
+                        >
+                          <span className="block font-medium">{client.name}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {[client.phone, client.nif && `NIF ${client.nif}`, client.email].filter(Boolean).join(" · ") || "Sem dados de contacto"}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <Button type="button" variant="outline" onClick={openNewClient}><UserPlus className="size-4" /><span className="hidden sm:inline">Novo</span></Button>
+            </div>
+            {selectedClient && <p className="mt-2 text-xs text-muted-foreground">Ficha selecionada: <strong className="text-foreground">{selectedClient.name}</strong>{selectedClient.phone ? ` · ${selectedClient.phone}` : ""}{selectedClient.nif ? ` · NIF ${selectedClient.nif}` : ""}{selectedClient.email ? ` · ${selectedClient.email}` : ""}</p>}
           </div>
           <div className="grid gap-1.5 sm:col-span-2"><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} /></div>
           <DialogFooter className="sm:col-span-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={saving || clientLoading}>{saving ? "A guardar…" : "Guardar lançamento"}</Button></DialogFooter>
