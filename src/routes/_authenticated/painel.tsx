@@ -43,6 +43,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -145,7 +148,16 @@ function monthLabel(month: string) {
   return label.charAt(0).toUpperCase() + label.slice(1).replace(" de ", " ");
 }
 
+function previousMonthKey(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(year, monthNumber - 2, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
 
+function daysInMonth(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Date(year, monthNumber, 0).getDate();
+}
 
 function Painel({ userId, email }: { userId: string | null; email: string | null }) {
   const navigate = useNavigate();
@@ -166,7 +178,6 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
 
   const entries = entriesQuery.data ?? [];
 
-  // --- Separação por mês (apenas filtragem, nenhum dado é alterado) ---
   const currentMonth = monthISO();
   const [period, setPeriod] = useState<string>(currentMonth);
   const monthOptions = useMemo(() => {
@@ -344,63 +355,19 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
             <SyncBadge />
             <NotificationsBell entries={entries} settings={settingsQuery.data ?? null} />
             <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5 px-2.5"
-                onClick={() =>
-                  void exportPdf(visible, {
-                    company: profileQuery.data?.company_name ?? "Relatório financeiro",
-                    currency: settingsQuery.data?.currency ?? "EUR",
-                  })
-                }
-              >
-                <FileText className="size-4" />
-                PDF
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5 px-2.5"
-                onClick={() => void exportExcel(visible, settingsQuery.data?.currency ?? "EUR")}
-              >
-                <FileSpreadsheet className="size-4" />
-                Excel
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5 px-2.5"
-                onClick={() => exportCsv(visible)}
-              >
-                <Download className="size-4" />
-                CSV
-              </Button>
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" onClick={() => void exportPdf(visible, { company: profileQuery.data?.company_name ?? "Relatório financeiro", currency: settingsQuery.data?.currency ?? "EUR" })}><FileText className="size-4" />PDF</Button>
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" onClick={() => void exportExcel(visible, settingsQuery.data?.currency ?? "EUR")}><FileSpreadsheet className="size-4" />Excel</Button>
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" onClick={() => exportCsv(visible)}><Download className="size-4" />CSV</Button>
             </div>
-            <Button onClick={() => openNew()} className="shadow-sm">
-              <Plus className="size-4" />
-              Novo lançamento
-            </Button>
-            <Button variant="outline" onClick={() => openNew(true)}>
-              <MinusCircle className="size-4" />
-              Retirada de caixa
-            </Button>
+            <Button onClick={() => openNew()} className="shadow-sm"><Plus className="size-4" />Novo lançamento</Button>
+            <Button variant="outline" onClick={() => openNew(true)}><MinusCircle className="size-4" />Retirada de caixa</Button>
           </div>
         </header>
 
         {entriesQuery.isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="panel h-28 animate-pulse p-5" />
-            ))}
-          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="panel h-28 animate-pulse p-5" />)}</div>
         ) : entriesQuery.isError ? (
-          <div className="panel p-6">
-            <p className="text-sm text-destructive">Não foi possível carregar os dados da nuvem.</p>
-            <Button className="mt-4" variant="outline" onClick={() => entriesQuery.refetch()}>
-              Tentar novamente
-            </Button>
-          </div>
+          <div className="panel p-6"><p className="text-sm text-destructive">Não foi possível carregar os dados da nuvem.</p><Button className="mt-4" variant="outline" onClick={() => entriesQuery.refetch()}>Tentar novamente</Button></div>
         ) : (
           <>
             {view === "dashboard" && (
@@ -414,23 +381,11 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                 <AiInsights entries={visible} settings={settingsQuery.data ?? null} />
                 <div className="grid gap-4 lg:grid-cols-[1.45fr_0.85fr]">
                   <div className="panel panel-crown p-5 lg:p-6 animate-fade-up">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <h2 className="font-display text-base font-semibold">Fluxo de caixa</h2>
-                      <span className="text-xs text-muted-foreground">Últimos 7 dias</span>
-                    </div>
+                    <div className="flex items-baseline justify-between gap-3"><h2 className="font-display text-base font-semibold">Fluxo de caixa</h2><span className="text-xs text-muted-foreground">Últimos 7 dias</span></div>
                     <div className="mt-5 h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={lastDays(visible)}>
-                          <defs>
-                            <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="var(--success)" stopOpacity={0.35} />
-                              <stop offset="100%" stopColor="var(--success)" stopOpacity={0} />
-                            </linearGradient>
-                            <linearGradient id="gExpense" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="var(--destructive)" stopOpacity={0.3} />
-                              <stop offset="100%" stopColor="var(--destructive)" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
+                          <defs><linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--success)" stopOpacity={0.35} /><stop offset="100%" stopColor="var(--success)" stopOpacity={0} /></linearGradient><linearGradient id="gExpense" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--destructive)" stopOpacity={0.3} /><stop offset="100%" stopColor="var(--destructive)" stopOpacity={0} /></linearGradient></defs>
                           <CartesianGrid strokeDasharray="4 6" stroke="var(--border)" vertical={false} />
                           <XAxis dataKey="date" tickFormatter={(d: string) => new Date(`${d}T00:00`).toLocaleDateString("pt-PT", { weekday: "short" })} tickLine={false} axisLine={false} fontSize={11} stroke="var(--muted-foreground)" />
                           <YAxis tickLine={false} axisLine={false} fontSize={11} width={48} stroke="var(--muted-foreground)" />
@@ -442,18 +397,10 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
                     </div>
                   </div>
                   <div className="panel p-5 lg:p-6 animate-fade-up">
-                    <div className="flex items-center gap-2">
-                      <Target className="size-4 text-primary" />
-                      <h2 className="font-display text-base font-semibold">Meta mensal</h2>
-                    </div>
+                    <div className="flex items-center gap-2"><Target className="size-4 text-primary" /><h2 className="font-display text-base font-semibold">Meta mensal</h2></div>
                     <p className="numeric mt-4 text-3xl font-bold tracking-tight">{goal ? money(goal) : "Defina uma meta"}</p>
-                    <div className="my-4 h-2.5 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-linear-to-r from-primary-dark to-primary transition-[width] duration-700 ease-out" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="numeric flex justify-between text-xs text-muted-foreground">
-                      <span>{money(monthIncome)} alcançados</span>
-                      <span className="font-semibold text-primary-dark">{Math.round(pct)}%</span>
-                    </div>
+                    <div className="my-4 h-2.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-linear-to-r from-primary-dark to-primary transition-[width] duration-700 ease-out" style={{ width: `${pct}%` }} /></div>
+                    <div className="numeric flex justify-between text-xs text-muted-foreground"><span>{money(monthIncome)} alcançados</span><span className="font-semibold text-primary-dark">{Math.round(pct)}%</span></div>
                     <GoalForm goal={goal} saving={saveSettings.isPending} onSave={(value) => saveSettings.mutate({ monthly_goal: value }, { onSuccess: () => toast.success("Meta mensal atualizada.") })} />
                   </div>
                 </div>
@@ -461,21 +408,9 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
               </section>
             )}
             {view === "records" && <RecordsView entries={visible} onEdit={openEdit} onDelete={(id) => deleteEntry.mutate(id)} />}
-            {view === "reports" && <ReportsView entries={visible} />}
+            {view === "reports" && <ReportsView entries={visible} allEntries={entries} selectedMonth={period === "all" ? currentMonth : period} />}
             {view === "settings" && (
-              <SettingsView
-                companyName={profileQuery.data?.company_name ?? ""}
-                ownerName={profileQuery.data?.owner_name ?? ""}
-                saving={saveProfile.isPending}
-                email={email}
-                entries={entries}
-                settings={settingsQuery.data ?? null}
-                profile={profileQuery.data ?? null}
-                onRestore={(list) => restoreBackup.mutate(list)}
-                restoring={restoreBackup.isPending}
-                onSave={(patch) => saveProfile.mutate(patch, { onSuccess: () => toast.success("Perfil atualizado em todos os dispositivos.") })}
-                onSignOut={handleSignOut}
-              />
+              <SettingsView companyName={profileQuery.data?.company_name ?? ""} ownerName={profileQuery.data?.owner_name ?? ""} saving={saveProfile.isPending} email={email} entries={entries} settings={settingsQuery.data ?? null} profile={profileQuery.data ?? null} onRestore={(list) => restoreBackup.mutate(list)} restoring={restoreBackup.isPending} onSave={(patch) => saveProfile.mutate(patch, { onSuccess: () => toast.success("Perfil atualizado em todos os dispositivos.") })} onSignOut={handleSignOut} />
             )}
           </>
         )}
@@ -486,38 +421,15 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
   );
 }
 
-const CHART_TOOLTIP = {
-  background: "var(--popover)",
-  border: "1px solid var(--border)",
-  borderRadius: "12px",
-  boxShadow: "var(--shadow-panel)",
-  fontSize: 12,
-  color: "var(--popover-foreground)",
-} as const;
+const CHART_TOOLTIP = { background: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px", boxShadow: "var(--shadow-panel)", fontSize: 12, color: "var(--popover-foreground)" } as const;
 
 function Metric({ label, value, hint, tone, icon: Icon, index = 0 }: { label: string; value: string; hint: string; tone?: "success" | "danger"; icon: typeof Wallet; index?: number }) {
-  return (
-    <article className="panel panel-lift p-5 animate-fade-up" style={{ animationDelay: `${index * 70}ms` }}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-xs font-medium text-muted-foreground">{label}</div>
-        <span className={cn("grid size-8 place-items-center rounded-lg", tone === "success" ? "bg-success-soft text-success" : tone === "danger" ? "bg-danger-soft text-destructive" : "bg-primary-soft text-primary-dark")}>
-          <Icon className="size-4" />
-        </span>
-      </div>
-      <div className={cn("numeric mt-3 text-2xl font-bold tracking-tight", tone === "success" && "text-success", tone === "danger" && "text-destructive")}>{value}</div>
-      <small className="text-muted-foreground">{hint}</small>
-    </article>
-  );
+  return <article className="panel panel-lift p-5 animate-fade-up" style={{ animationDelay: `${index * 70}ms` }}><div className="flex items-start justify-between gap-3"><div className="text-xs font-medium text-muted-foreground">{label}</div><span className={cn("grid size-8 place-items-center rounded-lg", tone === "success" ? "bg-success-soft text-success" : tone === "danger" ? "bg-danger-soft text-destructive" : "bg-primary-soft text-primary-dark")}><Icon className="size-4" /></span></div><div className={cn("numeric mt-3 text-2xl font-bold tracking-tight", tone === "success" && "text-success", tone === "danger" && "text-destructive")}>{value}</div><small className="text-muted-foreground">{hint}</small></article>;
 }
 
 function GoalForm({ goal, saving, onSave }: { goal: number; saving: boolean; onSave: (value: number) => void }) {
   const [value, setValue] = useState(String(goal || ""));
-  return (
-    <form className="mt-5 flex gap-2" onSubmit={(e) => { e.preventDefault(); onSave(Number(value) || 0); }}>
-      <Input type="number" step="0.01" min="0" placeholder="Meta de entradas" value={value} onChange={(e) => setValue(e.target.value)} />
-      <Button type="submit" variant="outline" disabled={saving}>{saving ? "…" : "Guardar"}</Button>
-    </form>
-  );
+  return <form className="mt-5 flex gap-2" onSubmit={(e) => { e.preventDefault(); onSave(Number(value) || 0); }}><Input type="number" step="0.01" min="0" placeholder="Meta de entradas" value={value} onChange={(e) => setValue(e.target.value)} /><Button type="submit" variant="outline" disabled={saving}>{saving ? "…" : "Guardar"}</Button></form>;
 }
 
 function RecordsView({ entries, onEdit, onDelete }: { entries: Entry[]; onEdit: (e: Entry) => void; onDelete: (id: string) => void }) {
@@ -531,128 +443,95 @@ function RecordsView({ entries, onEdit, onDelete }: { entries: Entry[]; onEdit: 
     return (!search || haystack.includes(search.toLowerCase())) && (!date || e.entry_date === date) && (!type || e.type === type) && (!category || e.category === category);
   });
   const selectClass = "h-10 rounded-lg border border-input bg-card px-3 text-sm outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40";
-  return (
-    <section className="grid gap-4 animate-fade-up">
-      <div className="panel flex flex-wrap gap-2 p-3">
-        <Input className="min-w-48 flex-1 bg-card" type="search" placeholder="Procurar…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <Input className="w-auto bg-card" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <select className={selectClass} value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="">Todos os tipos</option>
-          <option value="income">Entradas</option>
-          <option value="expense">Saídas</option>
-        </select>
-        <select className={selectClass} value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">Todas as categorias</option>
-          {categories.map((c) => (<option key={c} value={c}>{c}</option>))}
-        </select>
-        <Button variant="ghost" onClick={() => { setSearch(""); setDate(""); setType(""); setCategory(""); }}>Limpar</Button>
-      </div>
-      <RecordsTable entries={filtered} onEdit={onEdit} onDelete={onDelete} showPayment />
-    </section>
-  );
+  return <section className="grid gap-4 animate-fade-up"><div className="panel flex flex-wrap gap-2 p-3"><Input className="min-w-48 flex-1 bg-card" type="search" placeholder="Procurar…" value={search} onChange={(e) => setSearch(e.target.value)} /><Input className="w-auto bg-card" type="date" value={date} onChange={(e) => setDate(e.target.value)} /><select className={selectClass} value={type} onChange={(e) => setType(e.target.value)}><option value="">Todos os tipos</option><option value="income">Entradas</option><option value="expense">Saídas</option></select><select className={selectClass} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">Todas as categorias</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</select><Button variant="ghost" onClick={() => { setSearch(""); setDate(""); setType(""); setCategory(""); }}>Limpar</Button></div><RecordsTable entries={filtered} onEdit={onEdit} onDelete={onDelete} showPayment /></section>;
 }
 
 function RecordsTable({ entries, title, showPayment, onEdit, onDelete }: { entries: Entry[]; title?: string; showPayment?: boolean; onEdit: (e: Entry) => void; onDelete: (id: string) => void }) {
-  return (
-    <div className="panel p-5 lg:p-6 animate-fade-up">
-      {title && <h2 className="mb-4 font-display text-base font-semibold">{title}</h2>}
-      <div className="overflow-auto">
-        <table className="w-full min-w-[680px] border-collapse">
-          <thead>
-            <tr className="text-left text-[11px] tracking-wider text-muted-foreground uppercase">
-              <th className="px-2 pb-3 font-semibold">Data</th>
-              <th className="px-2 pb-3 font-semibold">Descrição</th>
-              <th className="px-2 pb-3 font-semibold">Categoria</th>
-              {showPayment && <th className="px-2 pb-3 font-semibold">Pagamento</th>}
-              <th className="px-2 pb-3 text-right font-semibold">Tipo</th>
-              <th className="px-2 pb-3 text-right font-semibold">Valor</th>
-              <th className="px-2 pb-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.length === 0 && (
-              <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">Ainda não tem lançamentos. Comece por adicionar o primeiro.</td></tr>
-            )}
-            {entries.map((e) => (
-              <tr key={e.id} className="group border-t border-border transition-colors hover:bg-accent/40">
-                <td className="numeric px-2 py-3 text-sm whitespace-nowrap">{formatDate(e.entry_date)}</td>
-                <td className="px-2 py-3 text-sm"><strong className="font-semibold">{e.description}</strong>{e.client && <div className="text-xs text-muted-foreground">{e.client}</div>}</td>
-                <td className="px-2 py-3 text-xs text-muted-foreground">{e.category}</td>
-                {showPayment && <td className="px-2 py-3 text-xs text-muted-foreground">{e.payment || "—"}</td>}
-                <td className="px-2 py-3">
-                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold", e.type === "income" ? "bg-success-soft text-success" : "bg-danger-soft text-destructive")}>
-                    {e.type === "income" ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
-                    {e.type === "income" ? "Entrada" : "Saída"}
-                  </span>
-                </td>
-                <td className={cn("numeric px-2 py-3 text-right text-sm font-bold whitespace-nowrap", e.type === "income" ? "text-success" : "text-destructive")}>
-                  {e.type === "income" ? "+" : "−"} {money(Number(e.value))}
-                </td>
-                <td className="px-2 py-3 text-right whitespace-nowrap">
-                  <div className="inline-flex gap-1 opacity-60 transition-opacity group-hover:opacity-100">
-                    <button className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-primary-dark" onClick={() => onEdit(e)} aria-label="Editar"><Pencil className="size-3.5" /></button>
-                    <button className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-soft hover:text-destructive" onClick={() => { if (confirm("Eliminar este lançamento em todos os dispositivos?")) onDelete(e.id); }} aria-label="Eliminar"><Trash2 className="size-3.5" /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <div className="panel p-5 lg:p-6 animate-fade-up">{title && <h2 className="mb-4 font-display text-base font-semibold">{title}</h2>}<div className="overflow-auto"><table className="w-full min-w-[680px] border-collapse"><thead><tr className="text-left text-[11px] tracking-wider text-muted-foreground uppercase"><th className="px-2 pb-3 font-semibold">Data</th><th className="px-2 pb-3 font-semibold">Descrição</th><th className="px-2 pb-3 font-semibold">Categoria</th>{showPayment && <th className="px-2 pb-3 font-semibold">Pagamento</th>}<th className="px-2 pb-3 text-right font-semibold">Tipo</th><th className="px-2 pb-3 text-right font-semibold">Valor</th><th className="px-2 pb-3"></th></tr></thead><tbody>{entries.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">Ainda não tem lançamentos. Comece por adicionar o primeiro.</td></tr>}{entries.map((e) => <tr key={e.id} className="group border-t border-border transition-colors hover:bg-accent/40"><td className="numeric px-2 py-3 text-sm whitespace-nowrap">{formatDate(e.entry_date)}</td><td className="px-2 py-3 text-sm"><strong className="font-semibold">{e.description}</strong>{e.client && <div className="text-xs text-muted-foreground">{e.client}</div>}</td><td className="px-2 py-3 text-xs text-muted-foreground">{e.category}</td>{showPayment && <td className="px-2 py-3 text-xs text-muted-foreground">{e.payment || "—"}</td>}<td className="px-2 py-3"><span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold", e.type === "income" ? "bg-success-soft text-success" : "bg-danger-soft text-destructive")}>{e.type === "income" ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}{e.type === "income" ? "Entrada" : "Saída"}</span></td><td className={cn("numeric px-2 py-3 text-right text-sm font-bold whitespace-nowrap", e.type === "income" ? "text-success" : "text-destructive")}>{e.type === "income" ? "+" : "−"} {money(Number(e.value))}</td><td className="px-2 py-3 text-right whitespace-nowrap"><div className="inline-flex gap-1 opacity-60 transition-opacity group-hover:opacity-100"><button className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-primary-dark" onClick={() => onEdit(e)} aria-label="Editar"><Pencil className="size-3.5" /></button><button className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-soft hover:text-destructive" onClick={() => { if (confirm("Eliminar este lançamento em todos os dispositivos?")) onDelete(e.id); }} aria-label="Eliminar"><Trash2 className="size-3.5" /></button></div></td></tr>)}</tbody></table></div></div>;
 }
 
-function ReportsView({ entries }: { entries: Entry[] }) {
+function ReportsView({ entries, allEntries, selectedMonth }: { entries: Entry[]; allEntries: Entry[]; selectedMonth: string }) {
   const t = totals(entries);
   const byCategory = useMemo(() => {
     const map = new Map<string, number>();
     entries.filter((e) => e.type === "expense").forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + Number(e.value)));
     return [...map.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total).slice(0, 6);
   }, [entries]);
+
+  const comparison = useMemo(() => {
+    const previousMonth = previousMonthKey(selectedMonth);
+    const currentRows = allEntries.filter((e) => e.type === "income" && e.entry_date.slice(0, 7) === selectedMonth);
+    const previousRows = allEntries.filter((e) => e.type === "income" && e.entry_date.slice(0, 7) === previousMonth);
+    const maxDays = Math.max(daysInMonth(selectedMonth), daysInMonth(previousMonth));
+    let currentRunning = 0;
+    let previousRunning = 0;
+    const data = Array.from({ length: maxDays }, (_, i) => {
+      const day = i + 1;
+      currentRunning += currentRows.filter((e) => Number(e.entry_date.slice(8, 10)) === day).reduce((sum, e) => sum + Number(e.value || 0), 0);
+      previousRunning += previousRows.filter((e) => Number(e.entry_date.slice(8, 10)) === day).reduce((sum, e) => sum + Number(e.value || 0), 0);
+      return { day, current: currentRunning, previous: previousRunning };
+    });
+
+    const selectedIsCurrentMonth = selectedMonth === monthISO();
+    const todayDay = selectedIsCurrentMonth ? Number(todayISO().slice(8, 10)) : daysInMonth(selectedMonth);
+    const point = data[Math.max(0, Math.min(todayDay, data.length) - 1)] ?? { current: 0, previous: 0 };
+    const difference = point.current - point.previous;
+    const percent = point.previous > 0 ? (difference / point.previous) * 100 : null;
+    return { previousMonth, data, todayDay, current: point.current, previous: point.previous, difference, percent };
+  }, [allEntries, selectedMonth]);
+
   return (
-    <section className="grid gap-4 animate-fade-up lg:grid-cols-[1.4fr_0.9fr]">
+    <section className="grid gap-4 animate-fade-up">
       <div className="panel panel-crown p-5 lg:p-6">
-        <h2 className="font-display text-base font-semibold">Saídas por categoria</h2>
-        <div className="mt-5 h-72">
-          {byCategory.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Adicione saídas para ver os gastos por categoria.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byCategory} layout="vertical" margin={{ left: 20 }}>
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="name" width={110} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-                <Tooltip cursor={{ fill: "var(--accent)" }} contentStyle={CHART_TOOLTIP} formatter={(v: number) => money(Number(v))} />
-                <Bar dataKey="total" fill="var(--destructive)" radius={8} animationDuration={700} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow">Comparação mensal</p>
+            <h2 className="mt-1 font-display text-base font-semibold">Faturação acumulada: {monthLabel(selectedMonth)} vs. {monthLabel(comparison.previousMonth)}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Compara o faturamento acumulado dia a dia, sempre usando o mesmo ponto de cada mês.</p>
+          </div>
+          <div className={cn("rounded-2xl border px-4 py-3 text-right", comparison.difference >= 0 ? "border-success/30 bg-success-soft" : "border-destructive/30 bg-danger-soft")}>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Até ao dia {comparison.todayDay}</p>
+            <p className={cn("numeric mt-1 text-xl font-bold", comparison.difference >= 0 ? "text-success" : "text-destructive")}>{comparison.difference >= 0 ? "+" : "−"}{money(Math.abs(comparison.difference))}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{comparison.percent === null ? "Sem base comparável no mês anterior" : `${comparison.percent >= 0 ? "+" : ""}${comparison.percent.toFixed(1)}% vs. mês anterior`}</p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border bg-background/45 p-4"><p className="text-xs text-muted-foreground">{monthLabel(selectedMonth)} até dia {comparison.todayDay}</p><p className="numeric mt-1 text-2xl font-bold">{money(comparison.current)}</p></div>
+          <div className="rounded-xl border bg-background/45 p-4"><p className="text-xs text-muted-foreground">{monthLabel(comparison.previousMonth)} até dia {comparison.todayDay}</p><p className="numeric mt-1 text-2xl font-bold">{money(comparison.previous)}</p></div>
+        </div>
+
+        <div className="mt-5 h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={comparison.data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="4 6" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={11} stroke="var(--muted-foreground)" tickFormatter={(d: number) => `Dia ${d}`} minTickGap={20} />
+              <YAxis tickLine={false} axisLine={false} fontSize={11} width={58} stroke="var(--muted-foreground)" tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
+              <Tooltip contentStyle={CHART_TOOLTIP} formatter={(v: number) => money(Number(v))} labelFormatter={(day) => `Dia ${day}`} />
+              <Legend />
+              <Line type="monotone" dataKey="current" name={monthLabel(selectedMonth)} stroke="var(--success)" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="previous" name={monthLabel(comparison.previousMonth)} stroke="var(--muted-foreground)" strokeWidth={2.5} strokeDasharray="7 5" dot={false} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
-      <div className="panel grid gap-5 p-5 lg:p-6">
-        <Summary label="Margem líquida" value={`${t.income ? Math.round((t.balance / t.income) * 100) : 0}%`} />
-        <Summary label="Média por lançamento" value={money(entries.length ? (t.income + t.expense) / entries.length : 0)} />
-        <Summary label="Número de movimentos" value={String(entries.length)} />
+
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_0.9fr]">
+        <div className="panel p-5 lg:p-6">
+          <h2 className="font-display text-base font-semibold">Saídas por categoria</h2>
+          <div className="mt-5 h-72">
+            {byCategory.length === 0 ? <p className="text-sm text-muted-foreground">Adicione saídas para ver os gastos por categoria.</p> : <ResponsiveContainer width="100%" height="100%"><BarChart data={byCategory} layout="vertical" margin={{ left: 20 }}><XAxis type="number" hide /><YAxis type="category" dataKey="name" width={110} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" /><Tooltip cursor={{ fill: "var(--accent)" }} contentStyle={CHART_TOOLTIP} formatter={(v: number) => money(Number(v))} /><Bar dataKey="total" fill="var(--destructive)" radius={8} animationDuration={700} /></BarChart></ResponsiveContainer>}
+          </div>
+        </div>
+        <div className="panel grid gap-5 p-5 lg:p-6"><Summary label="Margem líquida" value={`${t.income ? Math.round((t.balance / t.income) * 100) : 0}%`} /><Summary label="Média por lançamento" value={money(entries.length ? (t.income + t.expense) / entries.length : 0)} /><Summary label="Número de movimentos" value={String(entries.length)} /></div>
       </div>
     </section>
   );
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="numeric text-2xl font-bold tracking-tight">{value}</div>
-    </div>
-  );
-}
+function Summary({ label, value }: { label: string; value: string }) { return <div><div className="text-xs font-medium text-muted-foreground">{label}</div><div className="numeric text-2xl font-bold tracking-tight">{value}</div></div>; }
 
-function SettingsView({
-  companyName, ownerName, email, saving, entries, settings, profile, restoring, onRestore, onSave, onSignOut,
-}: {
-  companyName: string; ownerName: string; email: string | null; saving: boolean; entries: Entry[]; settings: Settings | null; profile: Profile | null; restoring: boolean;
-  onRestore: (entries: Entry[]) => void; onSave: (patch: { company_name: string; owner_name: string }) => void; onSignOut: () => void;
-}) {
+function SettingsView({ companyName, ownerName, email, saving, entries, settings, profile, restoring, onRestore, onSave, onSignOut }: { companyName: string; ownerName: string; email: string | null; saving: boolean; entries: Entry[]; settings: Settings | null; profile: Profile | null; restoring: boolean; onRestore: (entries: Entry[]) => void; onSave: (patch: { company_name: string; owner_name: string }) => void; onSignOut: () => void; }) {
   const [company, setCompany] = useState(companyName);
   const [owner, setOwner] = useState(ownerName);
   const [newPassword, setNewPassword] = useState("");
@@ -664,90 +543,14 @@ function SettingsView({
 
   return (
     <section className="grid gap-4 animate-fade-up lg:grid-cols-2">
-      <div className="panel p-5 lg:p-6">
-        <h2 className="font-display text-base font-semibold">Perfil</h2>
-        <form className="mt-4 grid gap-4" onSubmit={(e) => { e.preventDefault(); onSave({ company_name: company.trim() || "O meu negócio", owner_name: owner.trim() }); }}>
-          <div className="grid gap-1.5"><Label htmlFor="company">Nome do negócio</Label><Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} /></div>
-          <div className="grid gap-1.5"><Label htmlFor="owner">Responsável</Label><Input id="owner" value={owner} onChange={(e) => setOwner(e.target.value)} /></div>
-          <div className="grid gap-1.5"><Label>Conta</Label><p className="text-sm text-muted-foreground">{email}</p></div>
-          <Button type="submit" disabled={saving} className="justify-self-start">{saving ? "A guardar…" : "Guardar"}</Button>
-        </form>
-      </div>
+      <div className="panel p-5 lg:p-6"><h2 className="font-display text-base font-semibold">Perfil</h2><form className="mt-4 grid gap-4" onSubmit={(e) => { e.preventDefault(); onSave({ company_name: company.trim() || "O meu negócio", owner_name: owner.trim() }); }}><div className="grid gap-1.5"><Label htmlFor="company">Nome do negócio</Label><Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="owner">Responsável</Label><Input id="owner" value={owner} onChange={(e) => setOwner(e.target.value)} /></div><div className="grid gap-1.5"><Label>Conta</Label><p className="text-sm text-muted-foreground">{email}</p></div><Button type="submit" disabled={saving} className="justify-self-start">{saving ? "A guardar…" : "Guardar"}</Button></form></div>
       <NotificationSettings />
       <div className="grid gap-4">
-        <div className="panel p-5 lg:p-6">
-          <h2 className="font-display text-base font-semibold">Sincronização</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Todos os dados vivem na nuvem, na sua conta. Entre com o mesmo e-mail no iPhone e no computador para ver exatamente os mesmos lançamentos.</p>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <div className="flex items-center justify-between"><dt className="text-muted-foreground">Estado</dt><dd><SyncBadge /></dd></div>
-            <div className="flex justify-between"><dt className="text-muted-foreground">Última sincronização</dt><dd className="numeric">{lastSyncedAt ? lastSyncedAt.toLocaleTimeString("pt-PT") : "—"}</dd></div>
-            <div className="flex justify-between"><dt className="text-muted-foreground">Alterações por enviar</dt><dd className="numeric">{pending}</dd></div>
-            <div className="flex justify-between"><dt className="text-muted-foreground">Ligação em tempo real</dt><dd>{state === "synced" ? "Ativa" : state === "offline" ? "Sem internet" : "A ligar"}</dd></div>
-          </dl>
-          <Button variant="outline" className="mt-6" onClick={onSignOut}><LogOut className="size-4" />Terminar sessão</Button>
-        </div>
-        <div className="panel p-5 lg:p-6">
-          <h2 className="font-display text-base font-semibold">Segurança da conta</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Defina uma nova palavra-passe. Aplica-se de imediato em todos os dispositivos.</p>
-          <form className="mt-4 grid gap-3" onSubmit={async (e) => {
-            e.preventDefault();
-            if (newPassword.length < 6) { toast.error("A palavra-passe tem de ter pelo menos 6 caracteres."); return; }
-            setChangingPassword(true);
-            const { error } = await supabase.auth.updateUser({ password: newPassword });
-            setChangingPassword(false);
-            if (error) toast.error(error.message);
-            else { setNewPassword(""); toast.success("Palavra-passe alterada."); }
-          }}>
-            <div className="grid gap-1.5"><Label htmlFor="new-password">Nova palavra-passe</Label><Input id="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></div>
-            <Button type="submit" disabled={changingPassword} className="justify-self-start">{changingPassword ? "A alterar…" : "Alterar palavra-passe"}</Button>
-          </form>
-        </div>
-        <div className="panel p-5 lg:p-6">
-          <h2 className="flex items-center gap-2 font-display text-base font-semibold"><DatabaseBackup className="size-4 text-primary" />Backup e restauro</h2>
-          <p className="mt-2 text-sm text-muted-foreground">É criado um backup automático por dia neste dispositivo. Pode também guardar um ficheiro seguro no computador e restaurá-lo num clique.</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => { const backup = buildBackup(entries, settings, profile); storeBackup(backup, false); downloadBackup(backup); setHistory(readHistory()); toast.success("Backup criado e transferido."); }}>
-              <Download className="size-4" />Criar backup agora
-            </Button>
-            <label className="inline-flex">
-              <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
-                const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
-                try { const backup = parseBackup(await file.text()); onRestore(backup.entries); } catch (error) { toast.error((error as Error).message); }
-              }} />
-              <Button asChild variant="outline" disabled={restoring}><span>{restoring ? "A restaurar…" : "Restaurar de ficheiro"}</span></Button>
-            </label>
-          </div>
-          <div className="mt-5">
-            <p className="eyebrow">Histórico neste dispositivo</p>
-            {history.length === 0 ? (<p className="mt-2 text-sm text-muted-foreground">Ainda sem backups guardados.</p>) : (
-              <ul className="mt-2 grid gap-2">
-                {history.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2 text-sm">
-                    <span className="min-w-0"><span className="numeric">{new Date(item.created_at).toLocaleString("pt-PT")}</span><span className="ml-2 text-muted-foreground">{item.entries} lançamentos · {item.auto ? "automático" : "manual"}</span></span>
-                    <Button size="sm" variant="ghost" disabled={restoring} onClick={() => { const backup = loadBackup(item.id); if (!backup) { toast.error("Backup indisponível."); return; } onRestore(backup.entries); }}>Restaurar</Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-        <div className="panel p-5 lg:p-6">
-          <h2 className="font-display text-base font-semibold">Aparência</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Escolha entre o tema claro, o tema escuro premium ou deixe seguir automaticamente as definições do seu dispositivo.</p>
-          <ThemeToggle className="mt-4" />
-        </div>
-        <div className="panel border-destructive/40 p-5 lg:p-6">
-          <h2 className="font-display text-base font-semibold text-destructive">Apagar conta</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Elimina permanentemente a sua conta e todos os lançamentos, em todos os dispositivos (RGPD, direito ao apagamento). Esta ação não pode ser revertida.</p>
-          <div className="mt-4 grid gap-3">
-            <div className="grid gap-1.5"><Label htmlFor="delete-confirm">Escreva <span className="font-semibold">APAGAR</span> para confirmar</Label><Input id="delete-confirm" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} /></div>
-            <Button variant="destructive" className="justify-self-start" disabled={deleteConfirm.trim().toUpperCase() !== "APAGAR" || deleting} onClick={async () => {
-              setDeleting(true);
-              try { await deleteAccount(); await supabase.auth.signOut(); window.location.href = "/"; }
-              catch (error) { setDeleting(false); toast.error((error as Error).message ?? "Não foi possível apagar a conta."); }
-            }}>{deleting ? "A apagar…" : "Apagar conta definitivamente"}</Button>
-          </div>
-        </div>
+        <div className="panel p-5 lg:p-6"><h2 className="font-display text-base font-semibold">Sincronização</h2><p className="mt-2 text-sm text-muted-foreground">Todos os dados vivem na nuvem, na sua conta. Entre com o mesmo e-mail no iPhone e no computador para ver exatamente os mesmos lançamentos.</p><dl className="mt-4 grid gap-3 text-sm"><div className="flex items-center justify-between"><dt className="text-muted-foreground">Estado</dt><dd><SyncBadge /></dd></div><div className="flex justify-between"><dt className="text-muted-foreground">Última sincronização</dt><dd className="numeric">{lastSyncedAt ? lastSyncedAt.toLocaleTimeString("pt-PT") : "—"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">Alterações por enviar</dt><dd className="numeric">{pending}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">Ligação em tempo real</dt><dd>{state === "synced" ? "Ativa" : state === "offline" ? "Sem internet" : "A ligar"}</dd></div></dl><Button variant="outline" className="mt-6" onClick={onSignOut}><LogOut className="size-4" />Terminar sessão</Button></div>
+        <div className="panel p-5 lg:p-6"><h2 className="font-display text-base font-semibold">Segurança da conta</h2><p className="mt-2 text-sm text-muted-foreground">Defina uma nova palavra-passe. Aplica-se de imediato em todos os dispositivos.</p><form className="mt-4 grid gap-3" onSubmit={async (e) => { e.preventDefault(); if (newPassword.length < 6) { toast.error("A palavra-passe tem de ter pelo menos 6 caracteres."); return; } setChangingPassword(true); const { error } = await supabase.auth.updateUser({ password: newPassword }); setChangingPassword(false); if (error) toast.error(error.message); else { setNewPassword(""); toast.success("Palavra-passe alterada."); } }}><div className="grid gap-1.5"><Label htmlFor="new-password">Nova palavra-passe</Label><Input id="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></div><Button type="submit" disabled={changingPassword} className="justify-self-start">{changingPassword ? "A alterar…" : "Alterar palavra-passe"}</Button></form></div>
+        <div className="panel p-5 lg:p-6"><h2 className="flex items-center gap-2 font-display text-base font-semibold"><DatabaseBackup className="size-4 text-primary" />Backup e restauro</h2><p className="mt-2 text-sm text-muted-foreground">É criado um backup automático por dia neste dispositivo. Pode também guardar um ficheiro seguro no computador e restaurá-lo num clique.</p><div className="mt-4 flex flex-wrap gap-2"><Button variant="outline" onClick={() => { const backup = buildBackup(entries, settings, profile); storeBackup(backup, false); downloadBackup(backup); setHistory(readHistory()); toast.success("Backup criado e transferido."); }}><Download className="size-4" />Criar backup agora</Button><label className="inline-flex"><input type="file" accept="application/json" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; try { const backup = parseBackup(await file.text()); onRestore(backup.entries); } catch (error) { toast.error((error as Error).message); } }} /><Button asChild variant="outline" disabled={restoring}><span>{restoring ? "A restaurar…" : "Restaurar de ficheiro"}</span></Button></label></div><div className="mt-5"><p className="eyebrow">Histórico neste dispositivo</p>{history.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Ainda sem backups guardados.</p> : <ul className="mt-2 grid gap-2">{history.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2 text-sm"><span className="min-w-0"><span className="numeric">{new Date(item.created_at).toLocaleString("pt-PT")}</span><span className="ml-2 text-muted-foreground">{item.entries} lançamentos · {item.auto ? "automático" : "manual"}</span></span><Button size="sm" variant="ghost" disabled={restoring} onClick={() => { const backup = loadBackup(item.id); if (!backup) { toast.error("Backup indisponível."); return; } onRestore(backup.entries); }}>Restaurar</Button></li>)}</ul>}</div></div>
+        <div className="panel p-5 lg:p-6"><h2 className="font-display text-base font-semibold">Aparência</h2><p className="mt-2 text-sm text-muted-foreground">Escolha entre o tema claro, o tema escuro premium ou deixe seguir automaticamente as definições do seu dispositivo.</p><ThemeToggle className="mt-4" /></div>
+        <div className="panel border-destructive/40 p-5 lg:p-6"><h2 className="font-display text-base font-semibold text-destructive">Apagar conta</h2><p className="mt-2 text-sm text-muted-foreground">Elimina permanentemente a sua conta e todos os lançamentos, em todos os dispositivos (RGPD, direito ao apagamento). Esta ação não pode ser revertida.</p><div className="mt-4 grid gap-3"><div className="grid gap-1.5"><Label htmlFor="delete-confirm">Escreva <span className="font-semibold">APAGAR</span> para confirmar</Label><Input id="delete-confirm" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} /></div><Button variant="destructive" className="justify-self-start" disabled={deleteConfirm.trim().toUpperCase() !== "APAGAR" || deleting} onClick={async () => { setDeleting(true); try { await deleteAccount(); await supabase.auth.signOut(); window.location.href = "/"; } catch (error) { setDeleting(false); toast.error((error as Error).message ?? "Não foi possível apagar a conta."); } }}>{deleting ? "A apagar…" : "Apagar conta definitivamente"}</Button></div></div>
       </div>
     </section>
   );
