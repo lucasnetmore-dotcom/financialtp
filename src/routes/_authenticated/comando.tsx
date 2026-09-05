@@ -3,7 +3,10 @@ import { ArrowLeft, BellRing, CalendarDays, CircleDollarSign, Sparkles, Users } 
 import { useQueryClient } from "@tanstack/react-query";
 import { BusinessGrowthCenter } from "@/components/BusinessGrowthCenter";
 import { BusinessOverviewPro } from "@/components/BusinessOverviewPro";
+import { BusinessHealth } from "@/components/BusinessHealth";
+import { CeoActionCenter } from "@/components/CeoActionCenter";
 import { CeoAi } from "@/components/CeoAi";
+import { CeoOwnerMemory } from "@/components/CeoOwnerMemory";
 import { Button } from "@/components/ui/button";
 import { useAuthUser, useEntries, useSettings } from "@/lib/data";
 
@@ -23,12 +26,12 @@ function CommandCenter() {
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link to="/painel" className="rounded-xl border p-2.5 hover:bg-muted" aria-label="Voltar"><ArrowLeft className="size-4" /></Link>
-          <div><div className="flex items-center gap-2 text-primary"><Sparkles className="size-4" /><span className="eyebrow">Finance Flow AI</span></div><h1 className="mt-1 text-3xl font-bold tracking-tight">CEO AI</h1><p className="mt-1 text-sm text-muted-foreground">O centro inteligente que interpreta os dados da sua empresa e ajuda a decidir o próximo passo.</p></div>
+          <div><div className="flex items-center gap-2 text-primary"><Sparkles className="size-4" /><span className="eyebrow">Finance Flow AI</span></div><h1 className="mt-1 text-3xl font-bold tracking-tight">CEO AI</h1><p className="mt-1 text-sm text-muted-foreground">O centro inteligente que interpreta os dados da sua empresa, prioriza decisões e prepara ações sob a sua aprovação.</p></div>
         </div>
       </header>
 
       {isLoading ? <div className="panel h-52 animate-pulse" /> : <BusinessOverviewPro entries={entries} settings={settings ?? null} />}
-      {!isLoading && <CeoAi entries={entries} settings={settings ?? null} />}
+      {!isLoading && <><CeoAi entries={entries} settings={settings ?? null} /><BusinessHealth entries={entries}/><CeoActionCenter/><CeoOwnerMemory/></>}
 
       <section className="mt-5 grid gap-4 md:grid-cols-3">
         <ActionCard icon={BellRing} title="Notificações inteligentes" body="Alertas automáticos sobre saldo, gastos fora do padrão, meta mensal, categorias e atividade do negócio." to="/painel" cta="Ver painel" />
@@ -45,7 +48,7 @@ function CommandCenter() {
       <section className="mt-5 panel p-5 lg:p-6">
         <div className="flex items-center gap-2"><CircleDollarSign className="size-5 text-primary" /><h2 className="font-display text-lg font-semibold">Como o CEO AI evolui</h2></div>
         <div className="mt-4 grid gap-3 md:grid-cols-5">
-          {[['1','Vê','Financeiro, CRM e agenda alimentam o contexto.'],['2','Interpreta','Compara, projeta e encontra anomalias.'],['3','Recomenda','Prioriza decisões com impacto no caixa e crescimento.'],['4','Pede autorização','Ações relevantes ficam sob seu controlo.'],['5','Executa','Campanhas, cobranças e rotinas entram nas próximas fases.']].map(([n,t,b])=><div key={n} className="rounded-2xl border bg-muted/20 p-4"><span className="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{n}</span><p className="mt-3 font-semibold">{t}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{b}</p></div>)}
+          {[['1','Vê','Financeiro, CRM e agenda alimentam o contexto.'],['2','Interpreta','Compara, projeta e encontra anomalias.'],['3','Recomenda','Prioriza decisões com impacto no caixa e crescimento.'],['4','Pede autorização','Prepara ações e mantém a execução sob seu controlo.'],['5','Executa','Com integrações, envia, agenda, cobra e mede resultados.']].map(([n,t,b])=><div key={n} className="rounded-2xl border bg-muted/20 p-4"><span className="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{n}</span><p className="mt-3 font-semibold">{t}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{b}</p></div>)}
         </div>
       </section>
     </div>
