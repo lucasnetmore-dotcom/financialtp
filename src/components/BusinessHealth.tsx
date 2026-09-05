@@ -1,0 +1,16 @@
+import { Activity, CalendarCheck, CircleDollarSign, HeartPulse, Repeat2, ShieldCheck } from "lucide-react";
+import type { Entry } from "@/lib/finance";
+
+type Props={entries:Entry[];clients:number;inactive60:number;recurrence:number;next7:number};
+const month=(d:Date)=>d.toISOString().slice(0,7);
+
+export function BusinessHealth({entries,clients,inactive60,recurrence,next7}:Props){
+  const now=new Date(); const rows=entries.filter(e=>e.entry_date.slice(0,7)===month(now));
+  const income=rows.filter(e=>e.type==="income").reduce((s,e)=>s+Number(e.value),0); const expense=rows.filter(e=>e.type==="expense").reduce((s,e)=>s+Number(e.value),0); const margin=income?((income-expense)/income)*100:0;
+  const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1); const prevRows=entries.filter(e=>e.entry_date.slice(0,7)===month(prevDate)); const prevIncome=prevRows.filter(e=>e.type==="income").reduce((s,e)=>s+Number(e.value),0); const growth=prevIncome?((income-prevIncome)/prevIncome)*100:0;
+  const finance=Math.max(0,Math.min(100,margin>=30?90:margin>=20?75:margin>=10?55:margin>=0?35:10));
+  const retention=clients?Math.max(10,Math.min(100,recurrence)):50; const agenda=clients?Math.min(100,25+next7*10):50; const reactivation=clients?Math.max(0,100-(inactive60/clients)*120):50; const trend=Math.max(10,Math.min(100,50+growth));
+  const score=Math.round(finance*.32+retention*.22+agenda*.18+reactivation*.13+trend*.15); const label=score>=80?"Muito saudável":score>=65?"Saudável":score>=50?"Atenção":"Precisa de ação";
+  return <section className="mt-5 panel p-5 lg:p-6"><div className="flex flex-wrap items-center justify-between gap-4"><div><div className="flex items-center gap-2 text-primary"><HeartPulse className="size-5"/><span className="eyebrow">Business Health</span></div><h2 className="mt-2 text-xl font-bold">Saúde geral do negócio</h2><p className="mt-1 text-sm text-muted-foreground">Um indicador interno para priorizar gestão. Não é score bancário nem garantia de desempenho.</p></div><div className="flex items-center gap-3 rounded-2xl border bg-muted/20 px-5 py-4"><div className="text-4xl font-black tracking-tight">{score}</div><div><p className="text-xs text-muted-foreground">de 100</p><p className="text-sm font-bold">{label}</p></div></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><Health icon={CircleDollarSign} label="Financeiro" value={finance}/><Health icon={Repeat2} label="Recorrência" value={retention}/><Health icon={CalendarCheck} label="Agenda" value={agenda}/><Health icon={ShieldCheck} label="Reativação" value={reactivation}/><Health icon={Activity} label="Tendência" value={trend}/></div></section>
+}
+function Health({icon:Icon,label,value}:{icon:React.ComponentType<{className?:string}>;label:string;value:number}){const v=Math.round(value);return <div className="rounded-2xl border bg-background/60 p-4"><div className="flex items-center justify-between"><Icon className="size-4 text-primary"/><span className="text-sm font-bold">{v}</span></div><p className="mt-3 text-xs font-medium">{label}</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{width:`${v}%`}}/></div></div>}
