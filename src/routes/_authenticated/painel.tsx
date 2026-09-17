@@ -43,9 +43,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -55,6 +52,7 @@ import {
 import { AiInsights } from "@/components/AiInsights";
 import { BrandName } from "@/components/BrandName";
 import { EntryDialog } from "@/components/EntryDialog";
+import { MonthlyComparisonReport } from "@/components/MonthlyComparisonReport";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { SyncBadge } from "@/components/SyncBadge";
@@ -146,17 +144,6 @@ function monthLabel(month: string) {
     year: "numeric",
   });
   return label.charAt(0).toUpperCase() + label.slice(1).replace(" de ", " ");
-}
-
-function previousMonthKey(month: string) {
-  const [year = 0, monthNumber = 1] = month.split("-").map(Number);
-  const date = new Date(year, monthNumber - 2, 1);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function daysInMonth(month: string) {
-  const [year = 0, monthNumber = 1] = month.split("-").map(Number);
-  return new Date(year, monthNumber, 0).getDate();
 }
 
 function Painel({ userId, email }: { userId: string | null; email: string | null }) {
@@ -408,7 +395,7 @@ function Painel({ userId, email }: { userId: string | null; email: string | null
               </section>
             )}
             {view === "records" && <RecordsView entries={visible} onEdit={openEdit} onDelete={(id) => deleteEntry.mutate(id)} />}
-            {view === "reports" && <ReportsView entries={visible} allEntries={entries} selectedMonth={period === "all" ? currentMonth : period} />}
+            {view === "reports" && <ReportsView entries={visible} allEntries={entries} period={period} />}
             {view === "settings" && (
               <SettingsView companyName={profileQuery.data?.company_name ?? ""} ownerName={profileQuery.data?.owner_name ?? ""} saving={saveProfile.isPending} email={email} entries={entries} settings={settingsQuery.data ?? null} profile={profileQuery.data ?? null} onRestore={(list) => restoreBackup.mutate(list)} restoring={restoreBackup.isPending} onSave={(patch) => saveProfile.mutate(patch, { onSuccess: () => toast.success("Perfil atualizado em todos os dispositivos.") })} onSignOut={handleSignOut} />
             )}
@@ -450,7 +437,7 @@ function RecordsTable({ entries, title, showPayment, onEdit, onDelete }: { entri
   return <div className="panel p-5 lg:p-6 animate-fade-up">{title && <h2 className="mb-4 font-display text-base font-semibold">{title}</h2>}<div className="overflow-auto"><table className="w-full min-w-[680px] border-collapse"><thead><tr className="text-left text-[11px] tracking-wider text-muted-foreground uppercase"><th className="px-2 pb-3 font-semibold">Data</th><th className="px-2 pb-3 font-semibold">Descrição</th><th className="px-2 pb-3 font-semibold">Categoria</th>{showPayment && <th className="px-2 pb-3 font-semibold">Pagamento</th>}<th className="px-2 pb-3 text-right font-semibold">Tipo</th><th className="px-2 pb-3 text-right font-semibold">Valor</th><th className="px-2 pb-3"></th></tr></thead><tbody>{entries.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">Ainda não tem lançamentos. Comece por adicionar o primeiro.</td></tr>}{entries.map((e) => <tr key={e.id} className="group border-t border-border transition-colors hover:bg-accent/40"><td className="numeric px-2 py-3 text-sm whitespace-nowrap">{formatDate(e.entry_date)}</td><td className="px-2 py-3 text-sm"><strong className="font-semibold">{e.description}</strong>{e.client && <div className="text-xs text-muted-foreground">{e.client}</div>}</td><td className="px-2 py-3 text-xs text-muted-foreground">{e.category}</td>{showPayment && <td className="px-2 py-3 text-xs text-muted-foreground">{e.payment || "—"}</td>}<td className="px-2 py-3"><span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold", e.type === "income" ? "bg-success-soft text-success" : "bg-danger-soft text-destructive")}>{e.type === "income" ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}{e.type === "income" ? "Entrada" : "Saída"}</span></td><td className={cn("numeric px-2 py-3 text-right text-sm font-bold whitespace-nowrap", e.type === "income" ? "text-success" : "text-destructive")}>{e.type === "income" ? "+" : "−"} {money(Number(e.value))}</td><td className="px-2 py-3 text-right whitespace-nowrap"><div className="inline-flex gap-1 opacity-60 transition-opacity group-hover:opacity-100"><button className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-primary-dark" onClick={() => onEdit(e)} aria-label="Editar"><Pencil className="size-3.5" /></button><button className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-soft hover:text-destructive" onClick={() => { if (confirm("Eliminar este lançamento em todos os dispositivos?")) onDelete(e.id); }} aria-label="Eliminar"><Trash2 className="size-3.5" /></button></div></td></tr>)}</tbody></table></div></div>;
 }
 
-function ReportsView({ entries, allEntries, selectedMonth }: { entries: Entry[]; allEntries: Entry[]; selectedMonth: string }) {
+function ReportsView({ entries, allEntries, period }: { entries: Entry[]; allEntries: Entry[]; period: string }) {
   const t = totals(entries);
   const byCategory = useMemo(() => {
     const map = new Map<string, number>();
@@ -458,63 +445,9 @@ function ReportsView({ entries, allEntries, selectedMonth }: { entries: Entry[];
     return [...map.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total).slice(0, 6);
   }, [entries]);
 
-  const comparison = useMemo(() => {
-    const previousMonth = previousMonthKey(selectedMonth);
-    const currentRows = allEntries.filter((e) => e.type === "income" && e.entry_date.slice(0, 7) === selectedMonth);
-    const previousRows = allEntries.filter((e) => e.type === "income" && e.entry_date.slice(0, 7) === previousMonth);
-    const maxDays = Math.max(daysInMonth(selectedMonth), daysInMonth(previousMonth));
-    let currentRunning = 0;
-    let previousRunning = 0;
-    const data = Array.from({ length: maxDays }, (_, i) => {
-      const day = i + 1;
-      currentRunning += currentRows.filter((e) => Number(e.entry_date.slice(8, 10)) === day).reduce((sum, e) => sum + Number(e.value || 0), 0);
-      previousRunning += previousRows.filter((e) => Number(e.entry_date.slice(8, 10)) === day).reduce((sum, e) => sum + Number(e.value || 0), 0);
-      return { day, current: currentRunning, previous: previousRunning };
-    });
-
-    const selectedIsCurrentMonth = selectedMonth === monthISO();
-    const todayDay = selectedIsCurrentMonth ? Number(todayISO().slice(8, 10)) : daysInMonth(selectedMonth);
-    const point = data[Math.max(0, Math.min(todayDay, data.length) - 1)] ?? { current: 0, previous: 0 };
-    const difference = point.current - point.previous;
-    const percent = point.previous > 0 ? (difference / point.previous) * 100 : null;
-    return { previousMonth, data, todayDay, current: point.current, previous: point.previous, difference, percent };
-  }, [allEntries, selectedMonth]);
-
   return (
     <section className="grid gap-4 animate-fade-up">
-      <div className="panel panel-crown p-5 lg:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="eyebrow">Comparação mensal</p>
-            <h2 className="mt-1 font-display text-base font-semibold">Faturação acumulada: {monthLabel(selectedMonth)} vs. {monthLabel(comparison.previousMonth)}</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Compara o faturamento acumulado dia a dia, sempre usando o mesmo ponto de cada mês.</p>
-          </div>
-          <div className={cn("rounded-2xl border px-4 py-3 text-right", comparison.difference >= 0 ? "border-success/30 bg-success-soft" : "border-destructive/30 bg-danger-soft")}>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Até ao dia {comparison.todayDay}</p>
-            <p className={cn("numeric mt-1 text-xl font-bold", comparison.difference >= 0 ? "text-success" : "text-destructive")}>{comparison.difference >= 0 ? "+" : "−"}{money(Math.abs(comparison.difference))}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{comparison.percent === null ? "Sem base comparável no mês anterior" : `${comparison.percent >= 0 ? "+" : ""}${comparison.percent.toFixed(1)}% vs. mês anterior`}</p>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border bg-background/45 p-4"><p className="text-xs text-muted-foreground">{monthLabel(selectedMonth)} até dia {comparison.todayDay}</p><p className="numeric mt-1 text-2xl font-bold">{money(comparison.current)}</p></div>
-          <div className="rounded-xl border bg-background/45 p-4"><p className="text-xs text-muted-foreground">{monthLabel(comparison.previousMonth)} até dia {comparison.todayDay}</p><p className="numeric mt-1 text-2xl font-bold">{money(comparison.previous)}</p></div>
-        </div>
-
-        <div className="mt-5 h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={comparison.data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="4 6" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={11} stroke="var(--muted-foreground)" tickFormatter={(d: number) => `Dia ${d}`} minTickGap={20} />
-              <YAxis tickLine={false} axisLine={false} fontSize={11} width={58} stroke="var(--muted-foreground)" tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip contentStyle={CHART_TOOLTIP} formatter={(v: number) => money(Number(v))} labelFormatter={(day) => `Dia ${day}`} />
-              <Legend />
-              <Line type="monotone" dataKey="current" name={monthLabel(selectedMonth)} stroke="var(--success)" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
-              <Line type="monotone" dataKey="previous" name={monthLabel(comparison.previousMonth)} stroke="var(--muted-foreground)" strokeWidth={2.5} strokeDasharray="7 5" dot={false} activeDot={{ r: 5 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <MonthlyComparisonReport allEntries={allEntries} period={period} />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.9fr]">
         <div className="panel p-5 lg:p-6">
