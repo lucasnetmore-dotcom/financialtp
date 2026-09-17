@@ -33,7 +33,7 @@ export function CeoAi({ entries, settings }: { entries: Entry[]; settings: Setti
   useEffect(() => { let active = true; void Promise.all([
     supabase.from("clients").select("id,name,created_at"),
     supabase.from("appointments").select("id,client_id,starts_at,status,title"),
-    supabase.from("ceo_owner_memory").select("minimum_cash,minimum_margin,hiring_occupancy,current_priority").maybeSingle(),
+    (supabase as any).from("ceo_owner_memory").select("minimum_cash,minimum_margin,hiring_occupancy,current_priority").maybeSingle(),
   ]).then(([c,a,m])=>{ if(!active)return; if(!c.error)setClients((c.data??[]) as Client[]); if(!a.error)setAppointments((a.data??[]) as Appointment[]); if(!m.error&&m.data)setOwnerMemory({minimum_cash:Number(m.data.minimum_cash??memoryFallback.minimum_cash),minimum_margin:Number(m.data.minimum_margin??memoryFallback.minimum_margin),hiring_occupancy:Number(m.data.hiring_occupancy??memoryFallback.hiring_occupancy),current_priority:String(m.data.current_priority??memoryFallback.current_priority)}); else {try{const raw=localStorage.getItem("financeflow.ceo.memory.v1");if(raw){const x=JSON.parse(raw);setOwnerMemory({minimum_cash:Number(x.minimumCash??memoryFallback.minimum_cash),minimum_margin:Number(x.minimumMargin??memoryFallback.minimum_margin),hiring_occupancy:Number(x.hiringOccupancy??memoryFallback.hiring_occupancy),current_priority:String(x.currentPriority??memoryFallback.current_priority)})}}catch{}} }); return()=>{active=false}; }, []);
 
   const data = useMemo(() => {

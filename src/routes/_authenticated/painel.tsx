@@ -149,13 +149,13 @@ function monthLabel(month: string) {
 }
 
 function previousMonthKey(month: string) {
-  const [year, monthNumber] = month.split("-").map(Number);
+  const [year = 0, monthNumber = 1] = month.split("-").map(Number);
   const date = new Date(year, monthNumber - 2, 1);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function daysInMonth(month: string) {
-  const [year, monthNumber] = month.split("-").map(Number);
+  const [year = 0, monthNumber = 1] = month.split("-").map(Number);
   return new Date(year, monthNumber, 0).getDate();
 }
 

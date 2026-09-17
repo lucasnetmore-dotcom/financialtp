@@ -30,7 +30,7 @@ function normalizeSearch(value: string) {
 }
 
 export function EntryDialog({ open, entry, preset, saving, onOpenChange, onSubmit }: {
-  open: boolean; entry: Entry | null; preset?: "withdrawal"; saving: boolean;
+  open: boolean; entry: Entry | null; preset?: "withdrawal" | undefined; saving: boolean;
   onOpenChange: (open: boolean) => void; onSubmit: (input: EntryInput) => void;
 }) {
   const [form, setForm] = useState<EntryInput>(emptyForm());
