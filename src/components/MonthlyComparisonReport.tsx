@@ -117,7 +117,13 @@ export function MonthlyComparisonReport({
     [current, previous, difference],
   );
   const vanished = useMemo(
-    () => vanishedRows([...categories, ...descriptions]).slice(0, 12),
+    () =>
+      [
+        ...vanishedRows(categories).map((row) => ({ row, source: "category" as const })),
+        ...vanishedRows(descriptions).map((row) => ({ row, source: "description" as const })),
+      ]
+        .sort((a, b) => a.row.difference - b.row.difference)
+        .slice(0, 12),
     [categories, descriptions],
   );
   const series = useMemo(() => cumulativeSeries(current, previous, range), [current, previous, range]);
@@ -274,11 +280,15 @@ export function MonthlyComparisonReport({
           <p className="mt-4 text-sm text-muted-foreground">Nada desapareceu: todas as fontes de receita mantiveram-se.</p>
         ) : (
           <ul className="mt-4 grid gap-2">
-            {vanished.map((row) => (
-              <li key={`${row.key}-${row.previous}`}>
+            {vanished.map(({ row, source }) => (
+              <li key={`${source}-${row.key}-${row.previous}`}>
                 <button
                   className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 px-3 py-2.5 text-left transition-colors hover:bg-accent/50"
-                  onClick={() => openDrill(row, (e) => `${e.category}|${e.description}`.includes("") ? (normalizeKey(e.category) === row.key ? e.category : e.description) : e.description, "Sem descrição")}
+                  onClick={() =>
+                    source === "category"
+                      ? openDrill(row, (e) => e.category, "Sem categoria")
+                      : openDrill(row, (e) => e.description, "Sem descrição")
+                  }
                 >
                   <span className="min-w-0 text-sm font-semibold">{row.label}</span>
                   <span className="numeric text-sm text-muted-foreground">
